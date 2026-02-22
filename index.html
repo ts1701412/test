@@ -212,7 +212,7 @@
             word-wrap: break-word;
         }
 
-        /* 新增調試面板（雙擊螢幕顯示） */
+        /* 調試面板（雙擊螢幕顯示） */
         #debug-panel {
             position: absolute;
             bottom: 10px;
@@ -313,7 +313,6 @@
                 <h2 id="instruction-text" class="text-6xl md:text-8xl font-bold text-white neon-pulse transition-all duration-700">舉起手</h2>
             </div>
             <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">讓魔法發生</p>
-            <!-- 已移除自動倒數提示 -->
         </div>
 
         <!-- 摄像头预览框 -->
@@ -404,7 +403,8 @@
 
         // --- 全局变量 ---
         const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" };
-        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
+        // 降低手机粒子数以提升性能
+        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 2500 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
         const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
         const stateNames = ['IDLE', 'COUNTDOWN', 'CAKE', 'BLOWING', 'CELEBRATION'];
         
@@ -482,6 +482,11 @@
             ui.blowMeter.style.opacity = '0';
             ui.blowHint.style.opacity = '0';
             
+            // 隱藏手勢提示
+            ui.handIcon.style.display = 'none';
+            ui.mainText.style.display = 'none';
+            ui.subText.style.display = 'none';
+            
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
@@ -512,6 +517,10 @@
                 startTypewriter();
                 stopAllMusic();
                 playMusic(bgmVideo);
+                // 影片模式時隱藏手勢提示
+                ui.handIcon.style.display = 'none';
+                ui.mainText.style.display = 'none';
+                ui.subText.style.display = 'none';
             } else {
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
@@ -521,6 +530,12 @@
                     typewriterInterval = null;
                 }
                 videoText.textContent = '';
+                // 退出影片模式後，如果當前狀態是IDLE或BLOWING，重新顯示手勢提示
+                if (currentState === STATE.IDLE || currentState === STATE.BLOWING) {
+                    ui.handIcon.style.display = 'inline-block';
+                    ui.mainText.style.display = 'block';
+                    ui.subText.style.display = 'block';
+                }
                 if (!galaxyMode && currentState !== STATE.CELEBRATION) {
                     playMusic(bgmMain);
                 } else if (galaxyMode) {
@@ -562,8 +577,6 @@
         // --- 摄像头可用标志及鼠标控制标志 ---
         let cameraAvailable = false;
         let useMouseControl = false;
-
-        // --- 自動倒數變量已移除 ---
         
         let audioContext, analyser;
 
@@ -590,7 +603,6 @@
             mouseHint: document.getElementById('mouse-hint'),
             textContainer1: document.getElementById('typewriter-text-1'),
             closeBtn: document.getElementById('close-card-btn'),
-            // autoCountdownText 已移除
         };
 
         // 初始化 Three.js
@@ -877,7 +889,6 @@
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
                 else if (currentState === STATE.IDLE || currentState === STATE.BLOWING) {
-                    // IDLE 和 BLOWING 狀態下的背景粒子顏色處理
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
@@ -927,8 +938,7 @@
                     rotationVelocity *= 0.96; 
                     particleSystem.rotation.y += rotationVelocity + autoRotateSpeed;
                 }
-            } else if (currentState !== STATE.IDLE && currentState !== STATE.INTRO && currentState !== STATE.BLOWING) {
-                // 只有在 CELEBRATION 或 COUNTDOWN 時才擺動，但 COUNTDOWN 已移除
+            } else if (currentState === STATE.CELEBRATION) {
                 particleSystem.rotation.y = Math.sin(time * 0.15) * 0.15;
             } else {
                 particleSystem.rotation.y = 0;
@@ -938,7 +948,6 @@
         // --- 业务逻辑 ---
         let transitionLock = false;
 
-        // 移除倒數，直接進入吹氣模式
         function startSequence() {
             if (currentState !== STATE.IDLE || transitionLock) return;
             // 直接呼叫 showCake
@@ -955,6 +964,7 @@
             ui.statusText.innerText = "MIC LISTENING...";
             ui.blowMeter.style.opacity = '1';
             ui.blowHint.style.opacity = '1';
+            // 吹氣時保留手勢提示（可選，如果需要可以隱藏）
         }
 
         function typeWriter(textArray, containerId, speed = 50) {
@@ -1008,10 +1018,18 @@
             ui.surpriseLayer.classList.add('hidden');    
             ui.floatingGiftBtn.classList.remove('hidden');
             
+            // 回到主場景（IDLE）
+            currentState = STATE.IDLE;
             interactionMode = 1; 
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
+            // 恢復手勢提示（如果不在影片或銀河模式）
+            if (!galaxyMode && !videoMode) {
+                ui.handIcon.style.display = 'inline-block';
+                ui.mainText.style.display = 'block';
+                ui.subText.style.display = 'block';
+            }
             if (!galaxyMode && currentState !== STATE.CELEBRATION) {
                 playMusic(bgmMain);
             } else if (galaxyMode) {
@@ -1062,6 +1080,10 @@
             currentState = STATE.IDLE;
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
+            // 顯示手勢提示
+            ui.handIcon.style.display = 'inline-block';
+            ui.mainText.style.display = 'block';
+            ui.subText.style.display = 'block';
         });
 
         function enableMouseControl() {
@@ -1090,10 +1112,10 @@
             });
         }
 
-        // 键盘事件监听（備用，放寬條件）
+        // 键盘事件监听（備用）
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
-                if (currentState !== STATE.INTRO && !videoMode) {
+                if (currentState !== STATE.INTRO && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                     galaxyMode = !galaxyMode;
                     log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
@@ -1122,7 +1144,7 @@
                 }
             }
             if (e.key === '2') {
-                if (currentState !== STATE.INTRO) {
+                if (currentState !== STATE.INTRO && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                     toggleVideoMode(!videoMode);
                 }
             }
@@ -1287,7 +1309,6 @@
                         }
                     } else if (isYa) {
                         handGesture = 'ya';
-                        // 放寬條件：允許在 BLOWING 和 IDLE 狀態下切換
                         if (!lastYaGesture && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                             toggleVideoMode(true);
                         } else if (lastYaGesture && videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
@@ -1332,7 +1353,6 @@
                     ui.camStatusText.innerText = handGesture.toUpperCase();
                     ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
                     
-                    // 在 IDLE 狀態下舉手直接啟動，不移除倒數
                     if (currentState === STATE.IDLE && (isOne || isOk || isYa || isFist || isPalm)) {
                         startSequence();
                     }
