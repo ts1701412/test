@@ -313,7 +313,7 @@
                 <h2 id="instruction-text" class="text-6xl md:text-8xl font-bold text-white neon-pulse transition-all duration-700">舉起手</h2>
             </div>
             <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">讓魔法發生</p>
-            <p id="auto-countdown-text" class="mt-4 text-sm text-pink-200/60 font-light tracking-wider animate-pulse hidden"></p>
+            <!-- 已移除自動倒數提示 -->
         </div>
 
         <!-- 摄像头预览框 -->
@@ -563,9 +563,7 @@
         let cameraAvailable = false;
         let useMouseControl = false;
 
-        // --- 自动倒数变量 ---
-        let autoEntryTimer = null;
-        let autoEntrySeconds = 5;
+        // --- 自動倒數變量已移除 ---
         
         let audioContext, analyser;
 
@@ -592,7 +590,7 @@
             mouseHint: document.getElementById('mouse-hint'),
             textContainer1: document.getElementById('typewriter-text-1'),
             closeBtn: document.getElementById('close-card-btn'),
-            autoCountdownText: document.getElementById('auto-countdown-text')
+            // autoCountdownText 已移除
         };
 
         // 初始化 Three.js
@@ -878,7 +876,8 @@
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
-                else if (currentState === STATE.IDLE) {
+                else if (currentState === STATE.IDLE || currentState === STATE.BLOWING) {
+                    // IDLE 和 BLOWING 狀態下的背景粒子顏色處理
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
@@ -928,7 +927,8 @@
                     rotationVelocity *= 0.96; 
                     particleSystem.rotation.y += rotationVelocity + autoRotateSpeed;
                 }
-            } else if (currentState !== STATE.IDLE && currentState !== STATE.INTRO) {
+            } else if (currentState !== STATE.IDLE && currentState !== STATE.INTRO && currentState !== STATE.BLOWING) {
+                // 只有在 CELEBRATION 或 COUNTDOWN 時才擺動，但 COUNTDOWN 已移除
                 particleSystem.rotation.y = Math.sin(time * 0.15) * 0.15;
             } else {
                 particleSystem.rotation.y = 0;
@@ -938,35 +938,11 @@
         // --- 业务逻辑 ---
         let transitionLock = false;
 
+        // 移除倒數，直接進入吹氣模式
         function startSequence() {
             if (currentState !== STATE.IDLE || transitionLock) return;
-                        
-            if (autoEntryTimer) {
-                clearInterval(autoEntryTimer);
-                autoEntryTimer = null;
-            }
-            ui.autoCountdownText.classList.add('hidden');
-
-            log('检测到手势，开始倒计时序列');
-            transitionLock = true;
-            currentState = STATE.COUNTDOWN;
-            ui.statusText.innerText = "GESTURE DETECTED";
-            ui.statusText.className = "text-xs md:text-sm text-green-400 font-bold tracking-wider";
-            ui.statusDot.className = "inline-block w-2 h-2 rounded-full bg-green-500 mr-2 shadow-[0_0_8px_#0f0]";
-            ui.handIcon.style.display = 'none';
-            let count = 5;
-            ui.mainText.innerText = "";
-            ui.subText.innerText = "";
-            transitionTo('5');
-            const timer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    transitionTo(count.toString());
-                } else {
-                    clearInterval(timer);
-                    showCake();
-                }
-            }, 1000);
+            // 直接呼叫 showCake
+            showCake();
         }
 
         function showCake() {
@@ -1045,30 +1021,6 @@
             }
         });
 
-        // --- 自动倒数功能 ---
-        function startAutoEntryCountdown() {
-            autoEntrySeconds = 5;
-            ui.autoCountdownText.classList.remove('hidden');
-            ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
-            
-            if (autoEntryTimer) clearInterval(autoEntryTimer);
-
-            autoEntryTimer = setInterval(() => {
-                autoEntrySeconds--;
-                if (autoEntrySeconds > 0) {
-                    ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
-                } else {
-                    clearInterval(autoEntryTimer);
-                    autoEntryTimer = null;
-                    ui.autoCountdownText.classList.add('hidden');
-                    if (currentState === STATE.IDLE) {
-                        log('自动倒数结束，触发开始序列');
-                        startSequence();
-                    }
-                }
-            }, 1000);
-        }
-
         ui.startBtn.addEventListener('click', async function() {
             log('点击了进入按钮...');
             const btn = this;
@@ -1110,8 +1062,6 @@
             currentState = STATE.IDLE;
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
-
-            startAutoEntryCountdown();
         });
 
         function enableMouseControl() {
@@ -1140,7 +1090,7 @@
             });
         }
 
-        // 键盘事件监听（备用）
+        // 键盘事件监听（備用，放寬條件）
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
                 if (currentState !== STATE.INTRO && !videoMode) {
@@ -1283,12 +1233,11 @@
                         fingerRatios.push(tipDist / mcpDist);
                     }
                     
-                    // 閾值設定
-                    const fistThreshold = 1.4;       // 所有手指比值低於此為握拳
-                    const palmThreshold = 2.0;        // 所有手指比值高於此為手掌
-                    const oneThreshold = 1.6;         // 食指比值高於此，其他三指低於 fistThreshold
-                    const okDistThreshold = 0.18;      // 拇指食指距離閾值
-                    const yaThreshold = 1.6;           // 食指和中指比值高於此
+                    const fistThreshold = 1.4;
+                    const palmThreshold = 2.0;
+                    const oneThreshold = 1.6;
+                    const okDistThreshold = 0.18;
+                    const yaThreshold = 1.6;
                     
                     const isFist = fingerRatios.every(r => r < fistThreshold);
                     const isPalm = fingerRatios.every(r => r > palmThreshold);
@@ -1312,7 +1261,6 @@
                                  fingerRatios[3] < fistThreshold && 
                                  fingerRatios[4] < fistThreshold;
                     
-                    // 決定手勢名稱
                     let detectedGesture = 'unknown';
                     if (isOk) detectedGesture = 'OK';
                     else if (isYa) detectedGesture = 'YA';
@@ -1326,7 +1274,6 @@
                     debugText += ` 銀河:${galaxyMode?'ON':'OFF'} 影片:${videoMode?'ON':'OFF'}`;
                     updateDebug(debugText);
                     
-                    // 重置標記（如果不是對應手勢）
                     if (!isOne) lastOneGesture = false;
                     if (!isYa) lastYaGesture = false;
                     
@@ -1340,9 +1287,10 @@
                         }
                     } else if (isYa) {
                         handGesture = 'ya';
-                        if (!lastYaGesture && !videoMode && currentState === STATE.IDLE) {
+                        // 放寬條件：允許在 BLOWING 和 IDLE 狀態下切換
+                        if (!lastYaGesture && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                             toggleVideoMode(true);
-                        } else if (lastYaGesture && videoMode && currentState === STATE.IDLE) {
+                        } else if (lastYaGesture && videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                             toggleVideoMode(false);
                         }
                         lastYaGesture = true;
@@ -1353,7 +1301,7 @@
                         }
                         if (isOne) {
                             handGesture = 'one';
-                            if (!lastOneGesture && !videoMode && currentState === STATE.IDLE) {
+                            if (!lastOneGesture && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
                                 galaxyMode = !galaxyMode;
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 if (galaxyMode) {
@@ -1384,7 +1332,8 @@
                     ui.camStatusText.innerText = handGesture.toUpperCase();
                     ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
                     
-                    if (currentState === STATE.IDLE) {
+                    // 在 IDLE 狀態下舉手直接啟動，不移除倒數
+                    if (currentState === STATE.IDLE && (isOne || isOk || isYa || isFist || isPalm)) {
                         startSequence();
                     }
                     if (interactionMode === 1 && !galaxyMode && !videoMode) {
