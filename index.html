@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 
     <style>
+        /* 原有樣式保持不變，添加調試面板樣式 */
         :root { --bg-gradient: radial-gradient(circle at center, #1a0b1a 0%, #000000 100%); }
         body { 
             margin: 0; overflow: hidden; 
@@ -30,7 +31,7 @@
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: grab; }
         #canvas-container:active { cursor: grabbing; }
         
-        /* 翻转卡片 */
+        /* 翻轉卡片 */
         .flip-card { background-color: transparent; perspective: 1000px; }
         .flip-card-inner {
             position: relative; width: 100%; height: 100%; text-align: center;
@@ -204,7 +205,6 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 2100;
-            /* 字体 Bauhaus93，浅紫色，无背景框 */
             font-family: 'Bauhaus 93', 'Arial Black', sans-serif;
             color: #E6E6FA;
             font-size: 2.5rem;
@@ -212,11 +212,33 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
+
+        /* 新增調試面板（雙擊螢幕顯示） */
+        #debug-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #0f0;
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 8px;
+            z-index: 10000;
+            pointer-events: none;
+            max-width: 80%;
+            display: none;
+            border: 1px solid #ff69b4;
+        }
+        #debug-panel.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
     
     <div id="debug-console"></div>
+    <!-- 調試面板 -->
+    <div id="debug-panel" onclick="this.classList.toggle('show')" ondblclick="this.classList.toggle('show')">雙擊顯示調試</div>
 
     <div id="protocol-warning">
         ⚠️ 检测到您直接打开了HTML文件 (file://)。<br>摄像头和麦克风将被拦截。<br>
@@ -274,7 +296,7 @@
         <p class="text-pink-200/70 text-lg mt-2 tracking-widest uppercase">Wishing you happiness every day</p>
     </div>
 
-    <!-- UI 层（已移除调色盘按钮和面板，也没有虚拟手势按钮） -->
+    <!-- UI 层 -->
     <div id="ui-layer" style="display: none;">
         <div class="flex justify-between items-start w-full">
             <div class="glass-panel px-4 py-2">
@@ -316,7 +338,7 @@
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
-        <!-- 卡片（只保留第一页，边框线固定） -->
+        <!-- 卡片 -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -334,12 +356,16 @@
     <script>
         // --- 调试日志工具 ---
         const debugConsole = document.getElementById('debug-console');
+        const debugPanel = document.getElementById('debug-panel');
         function log(msg) {
             if (debugConsole) {
                 const time = new Date().toLocaleTimeString();
                 debugConsole.innerHTML += `[${time}] ${msg}<br>`;
             }
             console.log(msg);
+        }
+        function updateDebug(text) {
+            debugPanel.innerHTML = text;
         }
 
         const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -363,10 +389,9 @@
             "願你每一天都充滿驚喜。",
             "平安喜樂，心想事成。",
             "Happy every day! 💜",
-           
         ];
 
-        // ===== 卡片祝福语（第一页）=====
+        // ===== 卡片祝福语 =====
         const wishes_part1 = [
             "❤️每一個場景都有❤️",
             "一首專屬的歌曲🎵",
@@ -538,9 +563,9 @@
         let cameraAvailable = false;
         let useMouseControl = false;
 
-        // --- 自动倒数变量（改為5秒）---
+        // --- 自动倒数变量 ---
         let autoEntryTimer = null;
-        let autoEntrySeconds = 5;  // 從15改為5
+        let autoEntrySeconds = 5;
         
         let audioContext, analyser;
 
@@ -691,7 +716,7 @@
                 }
             } else if (type === 'cake') {
                 const totalCount = IS_MOBILE ? 2000 : 3500;
-                const scale = 1.2;  // 爱心大小
+                const scale = 1.2;
 
                 for (let i = 0; i < totalCount; i++) {
                     const u = Math.random() * Math.PI * 2;
@@ -832,7 +857,6 @@
                 const p = particlesData[i];
                 let target = p.target.clone();
 
-                // 爱心：深红色
                 if (p.type === 'heart') {
                     p.targetColor.set(0x8B0000);
                 }
@@ -852,7 +876,6 @@
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
-                    // 庆祝动画：浅粉色
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
                 else if (currentState === STATE.IDLE) {
@@ -862,18 +885,15 @@
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + target.x * 0.05) * 5; 
                     
-                    // 背景粒子：深灰色
                     if (p.type === 'bg') {
                         p.targetColor.set(0x333333);
                     }
                 }
 
-                // 银河模式覆盖所有颜色
                 if (galaxyMode && galaxyTargets) {
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // 非银河模式下的手势控制
                     if (p.type === 'bg' && heartCount > 0) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
@@ -961,7 +981,6 @@
             ui.blowHint.style.opacity = '1';
         }
 
-        // 打字机函数（用于卡片）
         function typeWriter(textArray, containerId, speed = 50) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -1026,7 +1045,7 @@
             }
         });
 
-        // --- 自动倒数功能（改為5秒）---
+        // --- 自动倒数功能 ---
         function startAutoEntryCountdown() {
             autoEntrySeconds = 5;
             ui.autoCountdownText.classList.remove('hidden');
@@ -1251,7 +1270,6 @@
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     const landmarks = results.multiHandLandmarks[0];
                     
-                    // 手势识别
                     const wrist = landmarks[0];
                     const tipIndices = [4, 8, 12, 16, 20];
                     const mcpIndices = [2, 5, 9, 13, 17];
@@ -1265,15 +1283,22 @@
                         fingerRatios.push(tipDist / mcpDist);
                     }
                     
-                    const fistThreshold = 1.5;
-                    const palmThreshold = 2.2;
+                    // 調試：顯示比值
+                    let debugText = `拇指:${fingerRatios[0].toFixed(2)} 食:${fingerRatios[1].toFixed(2)} 中:${fingerRatios[2].toFixed(2)} 無:${fingerRatios[3].toFixed(2)} 小:${fingerRatios[4].toFixed(2)}`;
+                    
+                    // 調整後的閾值（更靈敏）
+                    const fistThreshold = 1.4;       // 所有手指比值低於此為握拳
+                    const palmThreshold = 2.0;        // 所有手指比值高於此為手掌
+                    const oneThreshold = 1.6;         // 食指比值高於此，其他三指低於 fistThreshold
+                    const okDistThreshold = 0.18;      // 拇指食指距離閾值（稍放寬）
+                    const yaThreshold = 1.6;           // 食指和中指比值高於此
                     
                     const isFist = fingerRatios.every(r => r < fistThreshold);
                     const isPalm = fingerRatios.every(r => r > palmThreshold);
                     
-                    const oneThreshold = 2.0;
                     const isOne = (fingerRatios[1] > oneThreshold) && 
-                                 fingerRatios.slice(2).every(r => r < fistThreshold);
+                                 fingerRatios.slice(2).every(r => r < fistThreshold) &&
+                                 fingerRatios[0] < fistThreshold; // 拇指也應彎曲
                     
                     const thumbTip = landmarks[4];
                     const indexTip = landmarks[8];
@@ -1281,27 +1306,26 @@
                     const dy = thumbTip.y - indexTip.y;
                     const dz = thumbTip.z - indexTip.z;
                     const thumbIndexDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    const okDistThreshold = 0.15;
                     const isOkPinch = thumbIndexDist < okDistThreshold;
-                    const otherFingersStraight = fingerRatios[2] > 1.8 && fingerRatios[3] > 1.8 && fingerRatios[4] > 1.8;
+                    const otherFingersStraight = fingerRatios[2] > 1.5 && fingerRatios[3] > 1.5 && fingerRatios[4] > 1.5; // 放寬
                     const isOk = isOkPinch && otherFingersStraight;
 
-                    const yaThreshold = 1.8;
-                    const isIndexStraight = fingerRatios[1] > yaThreshold;
-                    const isMiddleStraight = fingerRatios[2] > yaThreshold;
-                    const isRingBent = fingerRatios[3] < 1.5;
-                    const isPinkyBent = fingerRatios[4] < 1.5;
-                    const isThumbBent = fingerRatios[0] < 1.5;
-                    const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
+                    // YA 手勢：食指和中指伸直，無名指和小指彎曲，拇指可彎可伸（放鬆條件）
+                    const isYa = fingerRatios[1] > yaThreshold && 
+                                 fingerRatios[2] > yaThreshold && 
+                                 fingerRatios[3] < fistThreshold && 
+                                 fingerRatios[4] < fistThreshold;
                     
-                    // 记录当前手势，便于调试
+                    // 決定手勢名稱
                     let detectedGesture = 'unknown';
                     if (isOk) detectedGesture = 'OK';
                     else if (isYa) detectedGesture = 'YA';
                     else if (isOne) detectedGesture = 'ONE';
                     else if (isFist) detectedGesture = 'FIST';
                     else if (isPalm) detectedGesture = 'PALM';
-                    log(`检测到手势: ${detectedGesture}, 当前状态: ${currentState}`);
+                    
+                    debugText += ` 手勢:${detectedGesture} 狀態:${currentState}`;
+                    updateDebug(debugText);
                     
                     if (isOk) {
                         handGesture = 'ok';
@@ -1310,29 +1334,24 @@
                             photoElement.src = photoList[randomIndex];
                             photoActive = true;
                             photoElement.classList.add('active');
-                            log('OK手势触发：显示照片');
                         }
                     } else if (isYa) {
                         handGesture = 'ya';
                         if (!lastYaGesture && !videoMode && currentState === STATE.IDLE) {
                             toggleVideoMode(true);
-                            log('YA手势触发：开启影片模式');
                         } else if (lastYaGesture && videoMode && currentState === STATE.IDLE) {
                             toggleVideoMode(false);
-                            log('YA手势触发：关闭影片模式');
                         }
                         lastYaGesture = true;
                     } else {
                         if (handGesture === 'ok' && photoActive) {
                             photoActive = false;
                             photoElement.classList.remove('active');
-                            log('OK手势松开：隐藏照片');
                         }
                         if (isOne) {
                             handGesture = 'one';
                             if (!lastOneGesture && !videoMode && currentState === STATE.IDLE) {
                                 galaxyMode = !galaxyMode;
-                                log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 if (galaxyMode) {
                                     galaxyTargets = generateGalaxyTargets();
@@ -1386,6 +1405,7 @@
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
+                    updateDebug('無手部偵測');
                 }
 
                 const ctx = document.getElementById('output_canvas').getContext('2d');
