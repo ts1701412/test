@@ -19,7 +19,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        /* 原有樣式保持不變，添加調試面板樣式 */
         :root { --bg-gradient: radial-gradient(circle at center, #1a0b1a 0%, #000000 100%); }
         body { 
             margin: 0; overflow: hidden; 
@@ -407,6 +406,7 @@
         const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" };
         const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
         const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
+        const stateNames = ['IDLE', 'COUNTDOWN', 'CAKE', 'BLOWING', 'CELEBRATION'];
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -1283,14 +1283,11 @@
                         fingerRatios.push(tipDist / mcpDist);
                     }
                     
-                    // 調試：顯示比值
-                    let debugText = `拇指:${fingerRatios[0].toFixed(2)} 食:${fingerRatios[1].toFixed(2)} 中:${fingerRatios[2].toFixed(2)} 無:${fingerRatios[3].toFixed(2)} 小:${fingerRatios[4].toFixed(2)}`;
-                    
-                    // 調整後的閾值（更靈敏）
+                    // 閾值設定
                     const fistThreshold = 1.4;       // 所有手指比值低於此為握拳
                     const palmThreshold = 2.0;        // 所有手指比值高於此為手掌
                     const oneThreshold = 1.6;         // 食指比值高於此，其他三指低於 fistThreshold
-                    const okDistThreshold = 0.18;      // 拇指食指距離閾值（稍放寬）
+                    const okDistThreshold = 0.18;      // 拇指食指距離閾值
                     const yaThreshold = 1.6;           // 食指和中指比值高於此
                     
                     const isFist = fingerRatios.every(r => r < fistThreshold);
@@ -1298,7 +1295,7 @@
                     
                     const isOne = (fingerRatios[1] > oneThreshold) && 
                                  fingerRatios.slice(2).every(r => r < fistThreshold) &&
-                                 fingerRatios[0] < fistThreshold; // 拇指也應彎曲
+                                 fingerRatios[0] < fistThreshold;
                     
                     const thumbTip = landmarks[4];
                     const indexTip = landmarks[8];
@@ -1307,10 +1304,9 @@
                     const dz = thumbTip.z - indexTip.z;
                     const thumbIndexDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
                     const isOkPinch = thumbIndexDist < okDistThreshold;
-                    const otherFingersStraight = fingerRatios[2] > 1.5 && fingerRatios[3] > 1.5 && fingerRatios[4] > 1.5; // 放寬
+                    const otherFingersStraight = fingerRatios[2] > 1.5 && fingerRatios[3] > 1.5 && fingerRatios[4] > 1.5;
                     const isOk = isOkPinch && otherFingersStraight;
 
-                    // YA 手勢：食指和中指伸直，無名指和小指彎曲，拇指可彎可伸（放鬆條件）
                     const isYa = fingerRatios[1] > yaThreshold && 
                                  fingerRatios[2] > yaThreshold && 
                                  fingerRatios[3] < fistThreshold && 
@@ -1324,8 +1320,15 @@
                     else if (isFist) detectedGesture = 'FIST';
                     else if (isPalm) detectedGesture = 'PALM';
                     
-                    debugText += ` 手勢:${detectedGesture} 狀態:${currentState}`;
+                    // 更新調試面板
+                    let debugText = `拇指:${fingerRatios[0].toFixed(2)} 食:${fingerRatios[1].toFixed(2)} 中:${fingerRatios[2].toFixed(2)} 無:${fingerRatios[3].toFixed(2)} 小:${fingerRatios[4].toFixed(2)}`;
+                    debugText += ` 手勢:${detectedGesture} 狀態:${stateNames[currentState]}`;
+                    debugText += ` 銀河:${galaxyMode?'ON':'OFF'} 影片:${videoMode?'ON':'OFF'}`;
                     updateDebug(debugText);
+                    
+                    // 重置標記（如果不是對應手勢）
+                    if (!isOne) lastOneGesture = false;
+                    if (!isYa) lastYaGesture = false;
                     
                     if (isOk) {
                         handGesture = 'ok';
