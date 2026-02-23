@@ -171,6 +171,107 @@
         #galaxy-photo.active {
             transform: translate(-50%, -50%) scale(1);
         }
+        /* 银河模式下的虚拟OK按钮 */
+        #ok-simulate-btn {
+            position: absolute;
+            bottom: 100px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border: 2px solid gold;
+            color: gold;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 300;
+            pointer-events: auto;
+            transition: 0.2s;
+            box-shadow: 0 0 20px gold;
+        }
+        #ok-simulate-btn.hidden {
+            display: none;
+        }
+        #ok-simulate-btn:active {
+            transform: scale(0.9);
+            background: gold;
+            color: black;
+        }
+
+        /* ===== 影片模式样式 ===== */
+        #video-mode-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            display: none;
+            background: black;
+        }
+        #video-mode-container.active {
+            display: block;
+        }
+        #video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: black;
+        }
+        #video-text {
+            position: absolute;
+            left: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            max-width: 40%;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 2100;
+            /* 字体 Bauhaus93，浅紫色，无背景框 */
+            font-family: 'Bauhaus 93', 'Arial Black', sans-serif;
+            color: #E6E6FA;
+            font-size: 2.5rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        /* 虚拟YA按钮 */
+        #ya-simulate-btn {
+            position: absolute;
+            bottom: 100px;
+            right: 100px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border: 2px solid #ffaa00;
+            color: #ffaa00;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 300;
+            pointer-events: auto;
+            transition: 0.2s;
+            box-shadow: 0 0 20px #ffaa00;
+        }
+        #ya-simulate-btn.hidden {
+            display: none;
+        }
+        #ya-simulate-btn:active {
+            transform: scale(0.9);
+            background: #ffaa00;
+            color: black;
+        }
     </style>
 </head>
 <body>
@@ -204,11 +305,17 @@
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
+    <!-- 模拟OK手势按钮 -->
+    <div id="ok-simulate-btn" class="hidden">✌️</div>
+
     <!-- ===== 影片模式容器（已移除退出按钮） ===== -->
     <div id="video-mode-container">
         <video id="video-player" src="./src/video.mp4" controls playsinline loop></video>
         <div id="video-text"></div>
     </div>
+
+    <!-- 模拟YA手势按钮 -->
+    <div id="ya-simulate-btn">✌️</div>
 
     <!-- 启动页 -->
     <div id="start-overlay">
@@ -371,6 +478,7 @@
         // --- OK手势照片控制 ---
         let photoActive = false;
         const photoElement = document.getElementById('galaxy-photo');
+        const okSimulateBtn = document.getElementById('ok-simulate-btn');
 
         // ===== 影片模式相关 =====
         let videoMode = false;
@@ -378,6 +486,7 @@
         const videoContainer = document.getElementById('video-mode-container');
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
+        const yaSimulateBtn = document.getElementById('ya-simulate-btn');
 
         // ===== 音樂控制 =====
         const bgmMain = document.getElementById('bgm-main');
@@ -442,12 +551,14 @@
                 // 进入视频模式，关闭银河模式
                 galaxyMode = false;
                 galaxyTargets = null;
+                okSimulateBtn.classList.add('hidden');
                 if (photoActive) photoActive = false;
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
                 videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
                 startTypewriter();
+                yaSimulateBtn.classList.add('hidden');
                 stopAllMusic();
                 playMusic(bgmVideo);
             } else {
@@ -459,6 +570,7 @@
                     typewriterInterval = null;
                 }
                 videoText.textContent = '';
+                yaSimulateBtn.classList.remove('hidden');
                 // 根据当前状态恢复音乐
                 if (galaxyMode) {
                     playMusic(bgmGalaxy);
@@ -469,6 +581,12 @@
                 }
             }
         }
+
+        yaSimulateBtn.addEventListener('click', () => {
+            if (currentState !== STATE.INTRO) {
+                toggleVideoMode(!videoMode);
+            }
+        });
 
         // 打字机效果（速度150ms）
         function startTypewriter() {
@@ -760,8 +878,10 @@
 
             if (galaxyMode && !galaxyTargets) {
                 galaxyTargets = generateGalaxyTargets();
+                okSimulateBtn.classList.remove('hidden');
             } else if (!galaxyMode) {
                 galaxyTargets = null;
+                okSimulateBtn.classList.add('hidden');
                 if (photoActive) {
                     photoActive = false;
                     photoElement.classList.remove('active');
@@ -1022,11 +1142,11 @@
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
-                        if (currentState !== STATE.CELEBRATION) {
-                            playMusic(bgmGalaxy);
-                        }
+                        okSimulateBtn.classList.remove('hidden');
+                        playMusic(bgmGalaxy);
                     } else {
                         galaxyTargets = null;
+                        okSimulateBtn.classList.add('hidden');
                         if (photoActive) {
                             photoActive = false;
                             photoElement.classList.remove('active');
@@ -1059,6 +1179,27 @@
                     photoElement.classList.remove('active');
                     log('OK手势模拟松开');
                 }
+            }
+        });
+
+        okSimulateBtn.addEventListener('mousedown', () => {
+            if (galaxyMode && !photoActive && !videoMode) {
+                const randomIndex = Math.floor(Math.random() * photoList.length);
+                photoElement.src = photoList[randomIndex];
+                photoActive = true;
+                photoElement.classList.add('active');
+            }
+        });
+        okSimulateBtn.addEventListener('mouseup', () => {
+            if (galaxyMode && photoActive) {
+                photoActive = false;
+                photoElement.classList.remove('active');
+            }
+        });
+        okSimulateBtn.addEventListener('mouseleave', () => {
+            if (galaxyMode && photoActive) {
+                photoActive = false;
+                photoElement.classList.remove('active');
             }
         });
 
@@ -1222,9 +1363,11 @@
                                     // 如果要开启银河模式，先关闭视频模式
                                     if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
-                                    if (currentState !== STATE.CELEBRATION) playMusic(bgmGalaxy);
+                                    okSimulateBtn.classList.remove('hidden');
+                                    playMusic(bgmGalaxy);
                                 } else {
                                     galaxyTargets = null;
+                                    okSimulateBtn.classList.add('hidden');
                                     if (photoActive) photoActive = false;
                                     if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
                                 }
