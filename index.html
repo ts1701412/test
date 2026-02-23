@@ -69,9 +69,10 @@
             box-shadow: 0 0 50px rgba(255, 105, 180, 0.2);
         }
 
-        #blow-meter-container { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); width: 280px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; opacity: 0; transition: opacity 0.5s; }
-        #blow-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ff9a9e 0%, #ff69b4 100%); border-radius: 10px; transition: width 0.1s linear; box-shadow: 0 0 15px #ff69b4; }
-        #blow-hint { position: absolute; bottom: 18%; width: 100%; text-align: center; font-size: 14px; color: rgba(255,255,255,0.8); text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.5s; }
+        /* 吹气相关UI完全隐藏 (已移除功能) */
+        #blow-meter-container, #blow-hint {
+            display: none !important;
+        }
 
         #surprise-layer { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 80; pointer-events: none; transition: background 0.5s ease; }
         #surprise-layer.hidden { display: none !important; }
@@ -134,18 +135,14 @@
 
         /* 滚动文字区域样式 */
         .scrollable-text {
-            max-height: 240px; /* 限制高度 */
-            overflow-y: auto;  /* 允许垂直滚动 */
-            padding-right: 10px; /* 给滚动条留点空 */
-            scrollbar-width: thin; /* Firefox */
-            scrollbar-color: rgba(255,105,180,0.5) transparent; /* Firefox */
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,105,180,0.5) transparent;
         }
-        /* Chrome/Safari 滚动条样式 */
         .scrollable-text::-webkit-scrollbar {
             width: 4px;
-        }
-        .scrollable-text::-webkit-scrollbar-track {
-            background: transparent;
         }
         .scrollable-text::-webkit-scrollbar-thumb {
             background-color: rgba(255, 105, 180, 0.5);
@@ -234,7 +231,6 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 2100;
-            /* 字体 Bauhaus93，浅紫色，无背景框 */
             font-family: 'Bauhaus 93', 'Arial Black', sans-serif;
             color: #E6E6FA;
             font-size: 2.5rem;
@@ -300,7 +296,8 @@
     <video class="input_video" playsinline></video>
     <div id="canvas-container"></div>
     
-    <button id="floating-gift-btn" class="hidden safe-click-area" title="查看祝福">🎁</button>
+    <!-- 礼物按钮默认可见（移除了吹气后直接显示） -->
+    <button id="floating-gift-btn" class="safe-click-area" title="查看祝福">🎁</button>
 
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
@@ -308,7 +305,7 @@
     <!-- 模拟OK手势按钮 -->
     <div id="ok-simulate-btn" class="hidden">✌️</div>
 
-    <!-- ===== 影片模式容器（已移除退出按钮） ===== -->
+    <!-- ===== 影片模式容器 ===== -->
     <div id="video-mode-container">
         <video id="video-player" src="./src/video.mp4" controls playsinline loop></video>
         <div id="video-text"></div>
@@ -332,6 +329,7 @@
         </div>
     </div>
 
+    <!-- 吹气UI已隐藏（通过CSS） -->
     <div id="blow-hint"><p class="text-lg font-bold text-pink-200 mb-1">對著麥克風吹氣</p><p class="text-xs text-gray-400">(如果麦克风不灵可以尝试电脑长按空格 · 手机长按屏幕)</p></div>
     <div id="blow-meter-container"><div id="blow-meter-bar"></div></div>
 
@@ -382,7 +380,7 @@
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
-        <!-- 卡片（只保留第一页，边框线固定） -->
+        <!-- 卡片（只保留第一页） -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -423,7 +421,7 @@
             './src/5.jpg'
         ];
 
-        // ===== 影片文字列表（打字机用）=====
+        // ===== 影片文字列表 =====
         const videoMessages = [
             "親愛的你！",
             "願你每一天都充滿驚喜。",
@@ -445,9 +443,9 @@
         ];
 
         // --- 全局变量 ---
-        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" }; // 保留但不再使用
-        // ===== 修改点：手机粒子数从4000降至2000 =====
-        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 2000 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
+        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" };
+        // 粒子总数减少（主体爱心粒子减少）
+        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 2000 : 3500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
         const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
         
         let currentState = STATE.INTRO;
@@ -515,16 +513,11 @@
             }
         }
 
-        function fadeAudioIn() {
-            playMusic(bgmMain);
-        }
-
+        // 庆祝动画保留，但不再由吹气触发（改为手动触发？保留函数以备后用）
         function successCelebration() {
             log('许愿成功！播放庆祝动画');
             currentState = STATE.CELEBRATION;
             ui.statusText.innerText = "WISH GRANTED";
-            ui.blowMeter.style.opacity = '0';
-            ui.blowHint.style.opacity = '0';
             
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
@@ -583,7 +576,7 @@
             }
         });
 
-        // 打字机效果（速度150ms）
+        // 打字机效果
         function startTypewriter() {
             if (typewriterInterval) clearInterval(typewriterInterval);
             videoText.textContent = '';
@@ -615,10 +608,11 @@
         let cameraAvailable = false;
         let useMouseControl = false;
 
-        // --- 自动倒数变量（改為5秒）---
+        // --- 自动倒数变量（已弃用，保留但不使用）---
         let autoEntryTimer = null;
-        let autoEntrySeconds = 5;  // 從15改為5
+        let autoEntrySeconds = 5;  
         
+        // 不再使用音频/吹气相关
         let audioContext, analyser;
 
         const ui = {
@@ -744,7 +738,7 @@
             return new THREE.CanvasTexture(c);
         }
 
-        // ==================== 爱心生成 ====================
+        // ==================== 爱心生成（缩小版本，粒子减少） ====================
         function getShapePoints(type, text) {
             const points = [];
             if (type === 'text') {
@@ -767,9 +761,10 @@
                     }
                 }
             } else if (type === 'cake') {
-                const totalCount = IS_MOBILE ? 2000 : 3500;
-                // ===== 修改点：将爱心大小从 1.5 调小为 1.2 =====
-                const scale = 1.2;  // 可根据需要继续调整
+                // 粒子数量减少：移动端1000，桌面2000
+                const totalCount = IS_MOBILE ? 1000 : 2000;
+                // 爱心缩小：scale从1.2改为0.9
+                const scale = 0.9;  
 
                 for (let i = 0; i < totalCount; i++) {
                     const u = Math.random() * Math.PI * 2;
@@ -798,8 +793,8 @@
 
         function preloadShapes() {
             setTimeout(() => {
-                shapeCache['5'] = getShapePoints('text', '5'); // 新增5
-                shapeCache['4'] = getShapePoints('text', '4'); // 新增4
+                shapeCache['5'] = getShapePoints('text', '5');
+                shapeCache['4'] = getShapePoints('text', '4');
                 shapeCache['3'] = getShapePoints('text', '3');
                 shapeCache['2'] = getShapePoints('text', '2');
                 shapeCache['1'] = getShapePoints('text', '1');
@@ -932,17 +927,15 @@
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
-                    // 庆祝动画：浅粉色
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
-                else if (currentState === STATE.IDLE) {
+                else if (currentState === STATE.IDLE || currentState === STATE.BLOWING) { // BLOWING 下保持爱心形状
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + target.x * 0.05) * 5; 
                     
-                    // 背景粒子：深灰色
                     if (p.type === 'bg') {
                         p.targetColor.set(0x333333);
                     }
@@ -953,7 +946,7 @@
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // 非银河模式下的手势控制
+                    // 非银河模式下的手势控制（fist/palm 聚集/散开）
                     if (p.type === 'bg' && heartCount > 0) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
@@ -998,33 +991,20 @@
         // --- 业务逻辑 ---
         let transitionLock = false;
 
-        // ===== 修改点：移除手势启动后的5秒倒计时，直接进入吹气模式 =====
+        // 倒计时序列已弃用，但保留函数以防万一（不再调用）
         function startSequence() {
-            if (currentState !== STATE.IDLE || transitionLock) return;
-                        
-            if (autoEntryTimer) {
-                clearInterval(autoEntryTimer);
-                autoEntryTimer = null;
-            }
-            ui.autoCountdownText.classList.add('hidden');
-
-            log('检测到手势，直接进入吹气模式');
-            transitionLock = true;
-            // 直接展示蛋糕（吹气模式）
-            showCake();
-            // 注意：showCake 会改变 currentState，因此 transitionLock 无需重置
+            // 完全禁用倒计时和吹气功能
+            log('startSequence 被调用，但功能已移除');
         }
 
         function showCake() {
-            log('展示爱心，开启吹气检测');
-            currentState = STATE.BLOWING;
+            log('展示爱心（吹气功能已移除）');
+            currentState = STATE.BLOWING;  // 仍使用BLOWING状态但无吹气逻辑
             transitionTo('cake');
             ui.mainText.innerText = "";
             ui.subText.innerText = "";
             ui.topBanner.classList.remove('hidden'); 
-            ui.statusText.innerText = "MIC LISTENING...";
-            ui.blowMeter.style.opacity = '1';
-            ui.blowHint.style.opacity = '1';
+            // 隐藏所有吹气UI（已通过CSS隐藏）
         }
 
         // 打字机函数（用于卡片）
@@ -1081,6 +1061,8 @@
             
             interactionMode = 1; 
             transitionTo('cake'); 
+            // 确保状态回到爱心（不使用吹气）
+            currentState = STATE.BLOWING;
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
             if (!galaxyMode && currentState !== STATE.CELEBRATION) {
@@ -1092,28 +1074,9 @@
             }
         });
 
-        // --- 自动倒数功能（改為5秒）---
+        // 自动倒数已弃用
         function startAutoEntryCountdown() {
-            autoEntrySeconds = 5;  // 從15改為5
-            ui.autoCountdownText.classList.remove('hidden');
-            ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
-            
-            if (autoEntryTimer) clearInterval(autoEntryTimer);
-
-            autoEntryTimer = setInterval(() => {
-                autoEntrySeconds--;
-                if (autoEntrySeconds > 0) {
-                    ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
-                } else {
-                    clearInterval(autoEntryTimer);
-                    autoEntryTimer = null;
-                    ui.autoCountdownText.classList.add('hidden');
-                    if (currentState === STATE.IDLE) {
-                        log('自动倒数结束，触发开始序列');
-                        startSequence();
-                    }
-                }
-            }, 1000);
+            // 空函数，不再使用
         }
 
         ui.startBtn.addEventListener('click', async function() {
@@ -1128,14 +1091,14 @@
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
             
-            try {
-                fadeAudioIn();
-                await initAudio();
-                log('音频初始化成功');
-            } catch(e) {
-                log('音频初始化警告: ' + e);
-                ui.statusText.innerText = "AUDIO/MIC LIMITED";
-            }
+            // 不再请求音频（移除吹气）
+            // try {
+            //     await initAudio();
+            //     log('音频初始化成功');
+            // } catch(e) {
+            //     log('音频初始化警告: ' + e);
+            //     ui.statusText.innerText = "AUDIO/MIC LIMITED";
+            // }
 
             try {
                 log('尝试启动摄像头...');
@@ -1158,7 +1121,12 @@
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
 
-            startAutoEntryCountdown();
+            // 移除自动倒数
+            // startAutoEntryCountdown();
+
+            // 直接显示爱心（并显示礼物按钮）
+            showCake();
+            ui.floatingGiftBtn.classList.remove('hidden'); // 确保礼物按钮可见
         });
 
         function enableMouseControl() {
@@ -1257,30 +1225,17 @@
             }
         });
 
+        // 不再使用音频分析
         async function initAudio() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(stream);
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                source.connect(analyser);
-                checkAudio();
-            } catch (e) {
-                log('麦克风权限被拒绝');
-                ui.statusText.innerText = "MIC DENIED - USE TOUCH/SPACE";
-                throw e;
-            }
+            // 空函数，保留避免引用错误
         }
 
         document.addEventListener('touchstart', (e) => {
-            if(currentState === STATE.BLOWING && !e.target.closest('button') && !e.target.closest('input')) {
-                isTouching = true;
-            }
+            // 保留但不影响吹气
         }, {passive: false});
 
-        document.addEventListener('touchend', () => isTouching = false);
-        document.addEventListener('touchcancel', () => isTouching = false);
+        document.addEventListener('touchend', () => {});
+        document.addEventListener('touchcancel', () => {});
         document.addEventListener('keydown', (e) => { 
             if(e.code === 'Space') isSpacePressed = true; 
         });
@@ -1288,24 +1243,9 @@
             if(e.code === 'Space') isSpacePressed = false; 
         });
 
+        // 吹气检测已完全移除
         function checkAudio() {
-            requestAnimationFrame(checkAudio);
-            if (currentState !== STATE.BLOWING) return;
-            let volume = 0;
-            if (analyser) {
-                const data = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(data);
-                let sum = 0; for(let i=0; i<data.length; i++) sum += data[i];
-                volume = sum / data.length;
-            }
-            if (volume > VISUAL_CONFIG.blowThreshold || isSpacePressed || isTouching) {
-                blowProgress += 0.8; 
-            } else {
-                blowProgress -= 0.3; 
-            }
-            blowProgress = Math.max(0, Math.min(100, blowProgress));
-            ui.blowBar.style.width = blowProgress + '%';
-            if (blowProgress >= 100) successCelebration();
+            // 空函数
         }
 
         function fadeAudioIn() {
@@ -1406,6 +1346,7 @@
                         }
                         if (isOne) {
                             handGesture = 'one';
+                            // 使用1手势切换银河模式（仅IDLE状态且不在视频模式）
                             if (!lastOneGesture && !videoMode && currentState === STATE.IDLE) {
                                 galaxyMode = !galaxyMode;
                                 log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
@@ -1440,9 +1381,11 @@
                     ui.camStatusText.innerText = handGesture.toUpperCase();
                     ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
                     
-                    if (currentState === STATE.IDLE) {
-                        startSequence();
-                    }
+                    // 完全移除手势启动倒计时的调用
+                    // if (currentState === STATE.IDLE) {
+                    //     startSequence();
+                    // }
+
                     if (interactionMode === 1 && !galaxyMode && !videoMode) {
                         const currentHandX = landmarks[9].x; 
                         const delta = currentHandX - lastHandX;
