@@ -30,7 +30,7 @@
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: grab; }
         #canvas-container:active { cursor: grabbing; }
         
-        /* 翻轉卡片 */
+        /* 翻转卡片 */
         .flip-card { background-color: transparent; perspective: 1000px; }
         .flip-card-inner {
             position: relative; width: 100%; height: 100%; text-align: center;
@@ -171,6 +171,36 @@
         #galaxy-photo.active {
             transform: translate(-50%, -50%) scale(1);
         }
+        /* 银河模式下的虚拟OK按钮 */
+        #ok-simulate-btn {
+            position: absolute;
+            bottom: 100px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border: 2px solid gold;
+            color: gold;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 300;
+            pointer-events: auto;
+            transition: 0.2s;
+            box-shadow: 0 0 20px gold;
+        }
+        #ok-simulate-btn.hidden {
+            display: none;
+        }
+        #ok-simulate-btn:active {
+            transform: scale(0.9);
+            background: gold;
+            color: black;
+        }
 
         /* ===== 影片模式样式 ===== */
         #video-mode-container {
@@ -204,6 +234,7 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 2100;
+            /* 字体 Bauhaus93，浅紫色，无背景框 */
             font-family: 'Bauhaus 93', 'Arial Black', sans-serif;
             color: #E6E6FA;
             font-size: 2.5rem;
@@ -211,33 +242,41 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
-
-        /* 調試面板（雙擊螢幕顯示） */
-        #debug-panel {
+        /* 虚拟YA按钮 */
+        #ya-simulate-btn {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            color: #0f0;
-            font-size: 12px;
-            padding: 8px;
-            border-radius: 8px;
-            z-index: 10000;
-            pointer-events: none;
-            max-width: 80%;
-            display: none;
-            border: 1px solid #ff69b4;
+            bottom: 100px;
+            right: 100px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border: 2px solid #ffaa00;
+            color: #ffaa00;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 300;
+            pointer-events: auto;
+            transition: 0.2s;
+            box-shadow: 0 0 20px #ffaa00;
         }
-        #debug-panel.show {
-            display: block;
+        #ya-simulate-btn.hidden {
+            display: none;
+        }
+        #ya-simulate-btn:active {
+            transform: scale(0.9);
+            background: #ffaa00;
+            color: black;
         }
     </style>
 </head>
 <body>
     
     <div id="debug-console"></div>
-    <!-- 調試面板 -->
-    <div id="debug-panel" onclick="this.classList.toggle('show')" ondblclick="this.classList.toggle('show')">雙擊顯示調試</div>
 
     <div id="protocol-warning">
         ⚠️ 检测到您直接打开了HTML文件 (file://)。<br>摄像头和麦克风将被拦截。<br>
@@ -266,11 +305,17 @@
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
-    <!-- ===== 影片模式容器 ===== -->
+    <!-- 模拟OK手势按钮 -->
+    <div id="ok-simulate-btn" class="hidden">✌️</div>
+
+    <!-- ===== 影片模式容器（已移除退出按钮） ===== -->
     <div id="video-mode-container">
         <video id="video-player" src="./src/video.mp4" controls playsinline loop></video>
         <div id="video-text"></div>
     </div>
+
+    <!-- 模拟YA手势按钮 -->
+    <div id="ya-simulate-btn">✌️</div>
 
     <!-- 启动页 -->
     <div id="start-overlay">
@@ -278,7 +323,7 @@
             <h1 class="text-6xl mb-2 font-handwriting text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-purple-400 drop-shadow-lg">For the only one</h1>
             <div class="space-y-4 text-gray-200 text-lg mb-8 font-light">
                 <p>☝️ <b>點擊進入專屬通道</b> 將喚醒魔法</p>
-                <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未检测到摄像头，请使用鼠标左键控制聚集/散开，键盘1/2/O模拟手势</p>
+                        <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未检测到摄像头，请使用鼠标左键控制聚集/散开，键盘1/2/O模拟手势</p>
             </div>
             <button id="start-btn" class="safe-click-area px-12 py-4 bg-gradient-to-r from-pink-600 to-purple-700 rounded-full font-bold text-xl hover:scale-105 active:scale-95 transition transform shadow-[0_0_20px_rgba(255,105,180,0.5)] text-white border border-white/20 cursor-pointer z-50">
                 進入專屬通道
@@ -295,7 +340,7 @@
         <p class="text-pink-200/70 text-lg mt-2 tracking-widest uppercase">Wishing you happiness every day</p>
     </div>
 
-    <!-- UI 层 -->
+    <!-- UI 层（已移除调色盘按钮和面板） -->
     <div id="ui-layer" style="display: none;">
         <div class="flex justify-between items-start w-full">
             <div class="glass-panel px-4 py-2">
@@ -313,6 +358,7 @@
                 <h2 id="instruction-text" class="text-6xl md:text-8xl font-bold text-white neon-pulse transition-all duration-700">舉起手</h2>
             </div>
             <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">讓魔法發生</p>
+            <p id="auto-countdown-text" class="mt-4 text-sm text-pink-200/60 font-light tracking-wider animate-pulse hidden"></p>
         </div>
 
         <!-- 摄像头预览框 -->
@@ -336,7 +382,7 @@
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
-        <!-- 卡片 -->
+        <!-- 卡片（只保留第一页，边框线固定） -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -354,16 +400,12 @@
     <script>
         // --- 调试日志工具 ---
         const debugConsole = document.getElementById('debug-console');
-        const debugPanel = document.getElementById('debug-panel');
         function log(msg) {
             if (debugConsole) {
                 const time = new Date().toLocaleTimeString();
                 debugConsole.innerHTML += `[${time}] ${msg}<br>`;
             }
             console.log(msg);
-        }
-        function updateDebug(text) {
-            debugPanel.innerHTML = text;
         }
 
         const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -387,9 +429,10 @@
             "願你每一天都充滿驚喜。",
             "平安喜樂，心想事成。",
             "Happy every day! 💜",
+           
         ];
 
-        // ===== 卡片祝福语 =====
+        // ===== 卡片祝福语（第一页）=====
         const wishes_part1 = [
             "❤️每一個場景都有❤️",
             "一首專屬的歌曲🎵",
@@ -402,11 +445,10 @@
         ];
 
         // --- 全局变量 ---
-        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" };
-        // 降低手机粒子数以提升性能
-        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 2500 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
+        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" }; // 保留但不再使用
+        // ===== 修改点：手机粒子数从4000降至2000 =====
+        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 2000 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
         const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
-        const stateNames = ['IDLE', 'COUNTDOWN', 'CAKE', 'BLOWING', 'CELEBRATION'];
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -438,6 +480,7 @@
         // --- OK手势照片控制 ---
         let photoActive = false;
         const photoElement = document.getElementById('galaxy-photo');
+        const okSimulateBtn = document.getElementById('ok-simulate-btn');
 
         // ===== 影片模式相关 =====
         let videoMode = false;
@@ -445,6 +488,7 @@
         const videoContainer = document.getElementById('video-mode-container');
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
+        const yaSimulateBtn = document.getElementById('ya-simulate-btn');
 
         // ===== 音樂控制 =====
         const bgmMain = document.getElementById('bgm-main');
@@ -482,11 +526,6 @@
             ui.blowMeter.style.opacity = '0';
             ui.blowHint.style.opacity = '0';
             
-            // 隱藏手勢提示
-            ui.handIcon.style.display = 'none';
-            ui.mainText.style.display = 'none';
-            ui.subText.style.display = 'none';
-            
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
@@ -515,12 +554,9 @@
                 particleSystem.visible = false;
                 videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
                 startTypewriter();
+                yaSimulateBtn.classList.add('hidden');
                 stopAllMusic();
                 playMusic(bgmVideo);
-                // 影片模式時隱藏手勢提示
-                ui.handIcon.style.display = 'none';
-                ui.mainText.style.display = 'none';
-                ui.subText.style.display = 'none';
             } else {
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
@@ -530,12 +566,7 @@
                     typewriterInterval = null;
                 }
                 videoText.textContent = '';
-                // 退出影片模式後，如果當前狀態是IDLE或BLOWING，重新顯示手勢提示
-                if (currentState === STATE.IDLE || currentState === STATE.BLOWING) {
-                    ui.handIcon.style.display = 'inline-block';
-                    ui.mainText.style.display = 'block';
-                    ui.subText.style.display = 'block';
-                }
+                yaSimulateBtn.classList.remove('hidden');
                 if (!galaxyMode && currentState !== STATE.CELEBRATION) {
                     playMusic(bgmMain);
                 } else if (galaxyMode) {
@@ -545,6 +576,12 @@
                 }
             }
         }
+
+        yaSimulateBtn.addEventListener('click', () => {
+            if (currentState !== STATE.INTRO) {
+                toggleVideoMode(!videoMode);
+            }
+        });
 
         // 打字机效果（速度150ms）
         function startTypewriter() {
@@ -577,6 +614,10 @@
         // --- 摄像头可用标志及鼠标控制标志 ---
         let cameraAvailable = false;
         let useMouseControl = false;
+
+        // --- 自动倒数变量（改為5秒）---
+        let autoEntryTimer = null;
+        let autoEntrySeconds = 5;  // 從15改為5
         
         let audioContext, analyser;
 
@@ -603,6 +644,7 @@
             mouseHint: document.getElementById('mouse-hint'),
             textContainer1: document.getElementById('typewriter-text-1'),
             closeBtn: document.getElementById('close-card-btn'),
+            autoCountdownText: document.getElementById('auto-countdown-text')
         };
 
         // 初始化 Three.js
@@ -726,7 +768,8 @@
                 }
             } else if (type === 'cake') {
                 const totalCount = IS_MOBILE ? 2000 : 3500;
-                const scale = 1.2;
+                // ===== 修改点：将爱心大小从 1.5 调小为 1.2 =====
+                const scale = 1.2;  // 可根据需要继续调整
 
                 for (let i = 0; i < totalCount; i++) {
                     const u = Math.random() * Math.PI * 2;
@@ -755,8 +798,8 @@
 
         function preloadShapes() {
             setTimeout(() => {
-                shapeCache['5'] = getShapePoints('text', '5');
-                shapeCache['4'] = getShapePoints('text', '4');
+                shapeCache['5'] = getShapePoints('text', '5'); // 新增5
+                shapeCache['4'] = getShapePoints('text', '4'); // 新增4
                 shapeCache['3'] = getShapePoints('text', '3');
                 shapeCache['2'] = getShapePoints('text', '2');
                 shapeCache['1'] = getShapePoints('text', '1');
@@ -855,8 +898,10 @@
 
             if (galaxyMode && !galaxyTargets) {
                 galaxyTargets = generateGalaxyTargets();
+                okSimulateBtn.classList.remove('hidden');
             } else if (!galaxyMode) {
                 galaxyTargets = null;
+                okSimulateBtn.classList.add('hidden');
                 if (photoActive) {
                     photoActive = false;
                     photoElement.classList.remove('active');
@@ -867,6 +912,7 @@
                 const p = particlesData[i];
                 let target = p.target.clone();
 
+                // 爱心：深红色
                 if (p.type === 'heart') {
                     p.targetColor.set(0x8B0000);
                 }
@@ -886,24 +932,28 @@
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
+                    // 庆祝动画：浅粉色
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
-                else if (currentState === STATE.IDLE || currentState === STATE.BLOWING) {
+                else if (currentState === STATE.IDLE) {
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + target.x * 0.05) * 5; 
                     
+                    // 背景粒子：深灰色
                     if (p.type === 'bg') {
                         p.targetColor.set(0x333333);
                     }
                 }
 
+                // 银河模式覆盖所有颜色
                 if (galaxyMode && galaxyTargets) {
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
+                    // 非银河模式下的手势控制
                     if (p.type === 'bg' && heartCount > 0) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
@@ -938,7 +988,7 @@
                     rotationVelocity *= 0.96; 
                     particleSystem.rotation.y += rotationVelocity + autoRotateSpeed;
                 }
-            } else if (currentState === STATE.CELEBRATION) {
+            } else if (currentState !== STATE.IDLE && currentState !== STATE.INTRO) {
                 particleSystem.rotation.y = Math.sin(time * 0.15) * 0.15;
             } else {
                 particleSystem.rotation.y = 0;
@@ -948,10 +998,21 @@
         // --- 业务逻辑 ---
         let transitionLock = false;
 
+        // ===== 修改点：移除手势启动后的5秒倒计时，直接进入吹气模式 =====
         function startSequence() {
             if (currentState !== STATE.IDLE || transitionLock) return;
-            // 直接呼叫 showCake
+                        
+            if (autoEntryTimer) {
+                clearInterval(autoEntryTimer);
+                autoEntryTimer = null;
+            }
+            ui.autoCountdownText.classList.add('hidden');
+
+            log('检测到手势，直接进入吹气模式');
+            transitionLock = true;
+            // 直接展示蛋糕（吹气模式）
             showCake();
+            // 注意：showCake 会改变 currentState，因此 transitionLock 无需重置
         }
 
         function showCake() {
@@ -964,9 +1025,9 @@
             ui.statusText.innerText = "MIC LISTENING...";
             ui.blowMeter.style.opacity = '1';
             ui.blowHint.style.opacity = '1';
-            // 吹氣時保留手勢提示（可選，如果需要可以隱藏）
         }
 
+        // 打字机函数（用于卡片）
         function typeWriter(textArray, containerId, speed = 50) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -1018,18 +1079,10 @@
             ui.surpriseLayer.classList.add('hidden');    
             ui.floatingGiftBtn.classList.remove('hidden');
             
-            // 回到主場景（IDLE）
-            currentState = STATE.IDLE;
             interactionMode = 1; 
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
-            // 恢復手勢提示（如果不在影片或銀河模式）
-            if (!galaxyMode && !videoMode) {
-                ui.handIcon.style.display = 'inline-block';
-                ui.mainText.style.display = 'block';
-                ui.subText.style.display = 'block';
-            }
             if (!galaxyMode && currentState !== STATE.CELEBRATION) {
                 playMusic(bgmMain);
             } else if (galaxyMode) {
@@ -1038,6 +1091,30 @@
                 playMusic(bgmCelebration);
             }
         });
+
+        // --- 自动倒数功能（改為5秒）---
+        function startAutoEntryCountdown() {
+            autoEntrySeconds = 5;  // 從15改為5
+            ui.autoCountdownText.classList.remove('hidden');
+            ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
+            
+            if (autoEntryTimer) clearInterval(autoEntryTimer);
+
+            autoEntryTimer = setInterval(() => {
+                autoEntrySeconds--;
+                if (autoEntrySeconds > 0) {
+                    ui.autoCountdownText.innerText = `若未检测到手势，${autoEntrySeconds}秒后自动开始...`;
+                } else {
+                    clearInterval(autoEntryTimer);
+                    autoEntryTimer = null;
+                    ui.autoCountdownText.classList.add('hidden');
+                    if (currentState === STATE.IDLE) {
+                        log('自动倒数结束，触发开始序列');
+                        startSequence();
+                    }
+                }
+            }, 1000);
+        }
 
         ui.startBtn.addEventListener('click', async function() {
             log('点击了进入按钮...');
@@ -1080,10 +1157,8 @@
             currentState = STATE.IDLE;
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
-            // 顯示手勢提示
-            ui.handIcon.style.display = 'inline-block';
-            ui.mainText.style.display = 'block';
-            ui.subText.style.display = 'block';
+
+            startAutoEntryCountdown();
         });
 
         function enableMouseControl() {
@@ -1112,18 +1187,20 @@
             });
         }
 
-        // 键盘事件监听（備用）
+        // 键盘事件监听
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
-                if (currentState !== STATE.INTRO && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
+                if (currentState !== STATE.INTRO && !videoMode) {
                     galaxyMode = !galaxyMode;
                     log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
+                        okSimulateBtn.classList.remove('hidden');
                         playMusic(bgmGalaxy);
                     } else {
                         galaxyTargets = null;
+                        okSimulateBtn.classList.add('hidden');
                         if (photoActive) {
                             photoActive = false;
                             photoElement.classList.remove('active');
@@ -1144,7 +1221,7 @@
                 }
             }
             if (e.key === '2') {
-                if (currentState !== STATE.INTRO && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
+                if (currentState !== STATE.INTRO) {
                     toggleVideoMode(!videoMode);
                 }
             }
@@ -1156,6 +1233,27 @@
                     photoElement.classList.remove('active');
                     log('OK手势模拟松开');
                 }
+            }
+        });
+
+        okSimulateBtn.addEventListener('mousedown', () => {
+            if (galaxyMode && !photoActive && !videoMode) {
+                const randomIndex = Math.floor(Math.random() * photoList.length);
+                photoElement.src = photoList[randomIndex];
+                photoActive = true;
+                photoElement.classList.add('active');
+            }
+        });
+        okSimulateBtn.addEventListener('mouseup', () => {
+            if (galaxyMode && photoActive) {
+                photoActive = false;
+                photoElement.classList.remove('active');
+            }
+        });
+        okSimulateBtn.addEventListener('mouseleave', () => {
+            if (galaxyMode && photoActive) {
+                photoActive = false;
+                photoElement.classList.remove('active');
             }
         });
 
@@ -1242,6 +1340,7 @@
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     const landmarks = results.multiHandLandmarks[0];
                     
+                    // 手势识别
                     const wrist = landmarks[0];
                     const tipIndices = [4, 8, 12, 16, 20];
                     const mcpIndices = [2, 5, 9, 13, 17];
@@ -1255,18 +1354,15 @@
                         fingerRatios.push(tipDist / mcpDist);
                     }
                     
-                    const fistThreshold = 1.4;
-                    const palmThreshold = 2.0;
-                    const oneThreshold = 1.6;
-                    const okDistThreshold = 0.18;
-                    const yaThreshold = 1.6;
+                    const fistThreshold = 1.5;
+                    const palmThreshold = 2.2;
                     
                     const isFist = fingerRatios.every(r => r < fistThreshold);
                     const isPalm = fingerRatios.every(r => r > palmThreshold);
                     
+                    const oneThreshold = 2.0;
                     const isOne = (fingerRatios[1] > oneThreshold) && 
-                                 fingerRatios.slice(2).every(r => r < fistThreshold) &&
-                                 fingerRatios[0] < fistThreshold;
+                                 fingerRatios.slice(2).every(r => r < fistThreshold);
                     
                     const thumbTip = landmarks[4];
                     const indexTip = landmarks[8];
@@ -1274,30 +1370,18 @@
                     const dy = thumbTip.y - indexTip.y;
                     const dz = thumbTip.z - indexTip.z;
                     const thumbIndexDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    const okDistThreshold = 0.15;
                     const isOkPinch = thumbIndexDist < okDistThreshold;
-                    const otherFingersStraight = fingerRatios[2] > 1.5 && fingerRatios[3] > 1.5 && fingerRatios[4] > 1.5;
+                    const otherFingersStraight = fingerRatios[2] > 1.8 && fingerRatios[3] > 1.8 && fingerRatios[4] > 1.8;
                     const isOk = isOkPinch && otherFingersStraight;
 
-                    const isYa = fingerRatios[1] > yaThreshold && 
-                                 fingerRatios[2] > yaThreshold && 
-                                 fingerRatios[3] < fistThreshold && 
-                                 fingerRatios[4] < fistThreshold;
-                    
-                    let detectedGesture = 'unknown';
-                    if (isOk) detectedGesture = 'OK';
-                    else if (isYa) detectedGesture = 'YA';
-                    else if (isOne) detectedGesture = 'ONE';
-                    else if (isFist) detectedGesture = 'FIST';
-                    else if (isPalm) detectedGesture = 'PALM';
-                    
-                    // 更新調試面板
-                    let debugText = `拇指:${fingerRatios[0].toFixed(2)} 食:${fingerRatios[1].toFixed(2)} 中:${fingerRatios[2].toFixed(2)} 無:${fingerRatios[3].toFixed(2)} 小:${fingerRatios[4].toFixed(2)}`;
-                    debugText += ` 手勢:${detectedGesture} 狀態:${stateNames[currentState]}`;
-                    debugText += ` 銀河:${galaxyMode?'ON':'OFF'} 影片:${videoMode?'ON':'OFF'}`;
-                    updateDebug(debugText);
-                    
-                    if (!isOne) lastOneGesture = false;
-                    if (!isYa) lastYaGesture = false;
+                    const yaThreshold = 1.8;
+                    const isIndexStraight = fingerRatios[1] > yaThreshold;
+                    const isMiddleStraight = fingerRatios[2] > yaThreshold;
+                    const isRingBent = fingerRatios[3] < 1.5;
+                    const isPinkyBent = fingerRatios[4] < 1.5;
+                    const isThumbBent = fingerRatios[0] < 1.5;
+                    const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
                     
                     if (isOk) {
                         handGesture = 'ok';
@@ -1309,9 +1393,9 @@
                         }
                     } else if (isYa) {
                         handGesture = 'ya';
-                        if (!lastYaGesture && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
+                        if (!lastYaGesture && !videoMode && currentState === STATE.IDLE) {
                             toggleVideoMode(true);
-                        } else if (lastYaGesture && videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
+                        } else if (lastYaGesture && videoMode && currentState === STATE.IDLE) {
                             toggleVideoMode(false);
                         }
                         lastYaGesture = true;
@@ -1322,14 +1406,17 @@
                         }
                         if (isOne) {
                             handGesture = 'one';
-                            if (!lastOneGesture && !videoMode && (currentState === STATE.IDLE || currentState === STATE.BLOWING)) {
+                            if (!lastOneGesture && !videoMode && currentState === STATE.IDLE) {
                                 galaxyMode = !galaxyMode;
+                                log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 if (galaxyMode) {
                                     galaxyTargets = generateGalaxyTargets();
+                                    okSimulateBtn.classList.remove('hidden');
                                     playMusic(bgmGalaxy);
                                 } else {
                                     galaxyTargets = null;
+                                    okSimulateBtn.classList.add('hidden');
                                     if (photoActive) {
                                         photoActive = false;
                                         photoElement.classList.remove('active');
@@ -1353,7 +1440,7 @@
                     ui.camStatusText.innerText = handGesture.toUpperCase();
                     ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
                     
-                    if (currentState === STATE.IDLE && (isOne || isOk || isYa || isFist || isPalm)) {
+                    if (currentState === STATE.IDLE) {
                         startSequence();
                     }
                     if (interactionMode === 1 && !galaxyMode && !videoMode) {
@@ -1377,7 +1464,6 @@
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
-                    updateDebug('無手部偵測');
                 }
 
                 const ctx = document.getElementById('output_canvas').getContext('2d');
