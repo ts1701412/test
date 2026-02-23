@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <link rel="icon" type="image/png" href="../src/icon.svg">
@@ -548,12 +548,6 @@
             if (enable === videoMode) return;
             videoMode = enable;
             if (videoMode) {
-                // 进入视频模式，关闭银河模式
-                galaxyMode = false;
-                galaxyTargets = null;
-                okSimulateBtn.classList.add('hidden');
-                if (photoActive) photoActive = false;
-                
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
                 videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
@@ -571,13 +565,12 @@
                 }
                 videoText.textContent = '';
                 yaSimulateBtn.classList.remove('hidden');
-                // 根据当前状态恢复音乐
-                if (galaxyMode) {
+                if (!galaxyMode && currentState !== STATE.CELEBRATION) {
+                    playMusic(bgmMain);
+                } else if (galaxyMode) {
                     playMusic(bgmGalaxy);
                 } else if (currentState === STATE.CELEBRATION) {
                     playMusic(bgmCelebration);
-                } else {
-                    playMusic(bgmMain);
                 }
             }
         }
@@ -1342,12 +1335,14 @@
                         lastYaGesture = false;
                     } else if (isYa) {
                         handGesture = 'ya';
-                        // 边缘检测：只有刚出现时才触发
-                        if (!lastYaGesture) {
-                            toggleVideoMode(!videoMode);
+                        // 切换视频模式（不再限制状态）
+                        if (!lastYaGesture && !videoMode) {
+                            toggleVideoMode(true);
+                        } else if (lastYaGesture && videoMode) {
+                            toggleVideoMode(false);
                         }
                         lastYaGesture = true;
-                        lastOneGesture = false;
+                        lastOneGesture = false; // 重置one标志
                     } else {
                         if (handGesture === 'ok' && photoActive) {
                             photoActive = false;
@@ -1355,23 +1350,26 @@
                         }
                         if (isOne) {
                             handGesture = 'one';
-                            // 边缘检测：只有刚出现时才触发
-                            if (!lastOneGesture) {
-                                // 切换银河模式，并确保视频模式关闭
+                            // 切换银河模式（不再限制状态）
+                            if (!lastOneGesture && !videoMode) {
                                 galaxyMode = !galaxyMode;
+                                log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
+                                ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 if (galaxyMode) {
-                                    // 如果要开启银河模式，先关闭视频模式
-                                    if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
                                     okSimulateBtn.classList.remove('hidden');
                                     playMusic(bgmGalaxy);
                                 } else {
                                     galaxyTargets = null;
                                     okSimulateBtn.classList.add('hidden');
-                                    if (photoActive) photoActive = false;
-                                    if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
+                                    if (photoActive) {
+                                        photoActive = false;
+                                        photoElement.classList.remove('active');
+                                    }
+                                    if (currentState !== STATE.CELEBRATION) {
+                                        playMusic(bgmMain);
+                                    }
                                 }
-                                ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                             }
                             lastOneGesture = true;
                             lastYaGesture = false;
