@@ -204,10 +204,10 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 2100;
-            /* 字体 Bauhaus93，浅紫色，无背景框 */
-            font-family: 'Bauhaus 93', 'Arial Black', sans-serif;
+            /* 字体：细明体 + 后备字体 */
+            font-family: 'MingLiU', 'PMingLiU', '細明體', 'Noto Serif SC', serif;
             color: #E6E6FA;
-            font-size: 2.5rem;
+            font-size: 0.5rem;
             line-height: 1.4;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -247,12 +247,10 @@
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
-    <!-- 模拟手势按钮已全部移除 (原先的 ok-simulate-btn 和 ya-simulate-btn 已删除) -->
-
     <!-- ===== 影片模式容器（无控制条，自动播放） ===== -->
     <div id="video-mode-container">
-        <!-- 移除 controls 属性，添加 autoplay 和 playsinline 确保自动播放 -->
-        <video id="video-player" src="./src/video.mp4" playsinline loop autoplay></video>
+        <!-- 移除 autoplay，添加 preload="none" 避免预加载声音 -->
+        <video id="video-player" src="./src/video.mp4" playsinline loop preload="none"></video>
         <div id="video-text"></div>
     </div>
 
@@ -363,11 +361,16 @@
 
         // ===== 影片文字列表（打字机用）=====
         const videoMessages = [
-            "親愛的你！",
-            "願你每一天都充滿驚喜。",
-            "平安喜樂，心想事成。",
-            "Happy every day! 💜",
-           
+            "有些感情，悄悄來到。",
+            "不張揚，卻讓日常有了溫度。",
+            "",
+            "我的喜歡，",
+            "願在你遇到低谷時，",
+            "成為一點溫暖與力量。",
+            "至少我，",
+            "一直被你的魅力所吸引",
+            "——曾經如此，",
+            "未來亦會如此。",
         ];
 
         // ===== 卡片祝福语（第一页）=====
@@ -417,15 +420,14 @@
         // --- OK手势照片控制 ---
         let photoActive = false;
         const photoElement = document.getElementById('galaxy-photo');
-        // 模拟按钮已移除，不再需要 okSimulateBtn
 
         // ===== 影片模式相关 =====
         let videoMode = false;
         let typewriterInterval = null;
+        let typewriterTimeout = null; // 段间暂停超时（不再使用，保留以防万一）
         const videoContainer = document.getElementById('video-mode-container');
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
-        // yaSimulateBtn 已移除
 
         // ===== 音樂控制 =====
         const bgmMain = document.getElementById('bgm-main');
@@ -494,7 +496,7 @@
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
-                // 视频会自动播放（autoplay属性），但为确保调用play()
+                // 视频开始播放（已移除autoplay，此处手动播放）
                 videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
                 startTypewriter();
                 stopAllMusic();
@@ -503,9 +505,14 @@
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
                 videoPlayer.pause();
+                // 清除打字机相关定时器
                 if (typewriterInterval) {
                     clearInterval(typewriterInterval);
                     typewriterInterval = null;
+                }
+                if (typewriterTimeout) {
+                    clearTimeout(typewriterTimeout);
+                    typewriterTimeout = null;
                 }
                 videoText.textContent = '';
                 // 根据当前状态恢复音乐
@@ -519,28 +526,44 @@
             }
         }
 
-        // 打字机效果（速度150ms）
+        // 打字机效果：每段文字依次打出，保留不消失，段落间自动换行，全部打完后停止
         function startTypewriter() {
-            if (typewriterInterval) clearInterval(typewriterInterval);
-            videoText.textContent = '';
+            // 清除之前的定时器
+            if (typewriterInterval) {
+                clearInterval(typewriterInterval);
+                typewriterInterval = null;
+            }
+            if (typewriterTimeout) {
+                clearTimeout(typewriterTimeout);
+                typewriterTimeout = null;
+            }
+            videoText.textContent = ''; // 开始时清空
+
             let messageIndex = 0;
             let charIndex = 0;
-            const speed = 150;
+            const speed = 350; // 打字速度（毫秒/字符）
 
             function typeNext() {
                 if (messageIndex >= videoMessages.length) {
-                    clearInterval(typewriterInterval);
-                    typewriterInterval = null;
+                    // 所有段落已打完，停止
+                    if (typewriterInterval) {
+                        clearInterval(typewriterInterval);
+                        typewriterInterval = null;
+                    }
                     return;
                 }
                 const currentMessage = videoMessages[messageIndex];
+
                 if (charIndex < currentMessage.length) {
+                    // 逐字输出
                     videoText.textContent += currentMessage.charAt(charIndex);
                     charIndex++;
                 } else {
-                    videoText.textContent += '\n';
+                    // 当前段落已打完，添加换行，并移动到下一段
+                    videoText.textContent += '\n'; // 使用 \n 换行（需配合 white-space: pre-wrap）
                     messageIndex++;
                     charIndex = 0;
+                    // 继续打字（由 interval 自动调用下一轮）
                 }
             }
 
@@ -1063,7 +1086,7 @@
             });
         }
 
-        // 键盘事件监听（保留调试功能，但移除对已删除按钮的classList操作）
+        // 键盘事件监听（保留调试功能）
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
                 if (currentState !== STATE.INTRO && !videoMode) {
@@ -1072,11 +1095,9 @@
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
-                        // 模拟按钮已移除，不再显示
                         playMusic(bgmGalaxy);
                     } else {
                         galaxyTargets = null;
-                        // 模拟按钮已移除
                         if (photoActive) {
                             photoActive = false;
                             photoElement.classList.remove('active');
@@ -1111,8 +1132,6 @@
                 }
             }
         });
-
-        // 模拟按钮事件已全部移除
 
         async function initAudio() {
             try {
@@ -1274,11 +1293,9 @@
                                     // 如果要开启银河模式，先关闭视频模式
                                     if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
-                                    // 模拟按钮已移除，不再显示
                                     playMusic(bgmGalaxy);
                                 } else {
                                     galaxyTargets = null;
-                                    // 模拟按钮已移除
                                     if (photoActive) photoActive = false;
                                     if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
                                 }
