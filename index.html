@@ -9,6 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
     
@@ -207,7 +209,7 @@
             /* 字体：细明体 + 后备字体 */
             font-family: 'MingLiU', 'PMingLiU', '細明體', 'Noto Serif SC', serif;
             color: #E6E6FA;
-            font-size: 1.5rem;
+            font-size: 0.5rem;
             line-height: 1.4;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -412,6 +414,7 @@
         let lastOneGesture = false;
         let lastOkGesture = false;
         let lastYaGesture = false;
+        let lastFistGesture = false; // 新增，用于握拳边缘检测
 
         // --- 银河模式 ---
         let galaxyMode = false;
@@ -515,14 +518,7 @@
                     typewriterTimeout = null;
                 }
                 videoText.textContent = '';
-                // 根据当前状态恢复音乐
-                if (galaxyMode) {
-                    playMusic(bgmGalaxy);
-                } else if (currentState === STATE.CELEBRATION) {
-                    playMusic(bgmCelebration);
-                } else {
-                    playMusic(bgmMain);
-                }
+                // 根据当前状态恢复音乐（将在外部根据目标模式调整）
             }
         }
 
@@ -600,6 +596,19 @@
             textContainer1: document.getElementById('typewriter-text-1'),
             closeBtn: document.getElementById('close-card-btn')
         };
+
+        // ===== [新增] 增强抽取照片仪式感所需变量 =====
+        let photoExtractionActive = false;          // 是否正在执行抽取动画
+        let extractionCenter = new THREE.Vector3(0, 0, 0); // 相框中心（世界坐标）
+        let extractionTargets = [];                  // 粒子目标位置（椭圆上的点）
+        let photoFrameRing = null;                    // 发光的相框网格
+        const shutterSound = new Audio('./src/snap.mp3'); // 快门音效
+        shutterSound.volume = 0.3;
+
+        // ===== [新增] 转场动画所需变量 =====
+        let transitionActive = false;                 // 是否正在执行转场
+        let transitionOverlay = null;                 // 转场用的图片覆盖层
+        let transitionBlackOverlay = null;            // 黑屏覆盖层
 
         // 初始化 Three.js
         initThree();
@@ -813,6 +822,194 @@
             return { targets, colors };
         }
 
+        // ===== [新增] 开始照片抽取仪式 =====
+        function startPhotoExtraction() {
+            if (!galaxyMode || videoMode || photoExtractionActive || transitionActive) return;
+            
+            photoExtractionActive = true;
+            
+            // 计算相框中心（世界坐标），这里简单设为画面中心稍前的位置
+            extractionCenter.set(0, 0, 20);
+            
+            // 为每个粒子生成椭圆相框上的目标位置
+            const a = 2.5; // 长轴半径
+            const b = 1.5; // 短轴半径
+            const numParticles = particlesData.length;
+            extractionTargets = [];
+            for (let i = 0; i < numParticles; i++) {
+                const angle = (i / numParticles) * Math.PI * 2;
+                const px = extractionCenter.x + a * Math.cos(angle);
+                const py = extractionCenter.y + b * Math.sin(angle) * 0.8; // 垂直压扁
+                const pz = extractionCenter.z;
+                extractionTargets.push(new THREE.Vector3(px, py, pz));
+            }
+            
+            // 创建发光相框
+            if (photoFrameRing) scene.remove(photoFrameRing);
+            const ringGeometry = new THREE.TorusGeometry(2.3, 0.08, 32, 100);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffaa88,
+                emissive: 0x442200,
+                transparent: true,
+                opacity: 0.8
+            });
+            photoFrameRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            photoFrameRing.position.copy(extractionCenter);
+            photoFrameRing.rotation.x = Math.PI / 2; // 让环平躺？实际上可能需要竖立，但为了美观设为平躺并稍倾斜
+            photoFrameRing.rotation.z = 0.3;
+            scene.add(photoFrameRing);
+            
+            // 脉冲动画
+            gsap.to(photoFrameRing.material, {
+                opacity: 0.3,
+                duration: 0.8,
+                yoyo: true,
+                repeat: -1
+            });
+            
+            // 等待粒子聚集完成后显示照片（由 updateParticles 检测）
+        }
+
+        // ===== [新增] 开始转场到视频模式 =====
+        function startTransitionToVideo() {
+            if (transitionActive || videoMode) return;
+            transitionActive = true;
+            
+            // 停用银河模式和抽取状态
+            galaxyMode = false;
+            galaxyTargets = null;
+            photoExtractionActive = false;
+            if (photoFrameRing) {
+                scene.remove(photoFrameRing);
+                photoFrameRing = null;
+            }
+            
+            // 粒子淡出 + 后撤
+            gsap.to(particleSystem.material, {
+                opacity: 0,
+                duration: 2,
+                ease: "power2.in",
+                onUpdate: () => {
+                    // 同时让粒子整体后移（简单起见，移动整个系统）
+                    particleSystem.position.z -= 0.1;
+                },
+                onComplete: () => {
+                    particleSystem.visible = false;
+                    particleSystem.material.opacity = 1; // 重置以便下次使用
+                    particleSystem.position.z = 0;
+                }
+            });
+            
+            // 准备视频第一帧
+            const video = videoPlayer;
+            if (!video) return;
+            
+            // 确保视频已加载至少第一帧
+            if (video.readyState < 2) {
+                video.addEventListener('loadeddata', () => doTransition(), { once: true });
+                video.load();
+            } else {
+                doTransition();
+            }
+            
+            function doTransition() {
+                // 截取第一帧
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // 创建图片覆盖层
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL('image/jpeg');
+                img.style.position = 'fixed';
+                img.style.top = '50%';
+                img.style.left = '50%';
+                img.style.transform = 'translate(-50%, -50%) scale(0)';
+                img.style.maxWidth = '90vw';
+                img.style.maxHeight = '90vh';
+                img.style.opacity = '0';
+                img.style.transition = 'opacity 2s ease, transform 2s ease';
+                img.style.zIndex = '3000';
+                img.style.pointerEvents = 'none';
+                document.body.appendChild(img);
+                transitionOverlay = img;
+                
+                // 黑屏覆盖层
+                const black = document.createElement('div');
+                black.style.position = 'fixed';
+                black.style.top = '0';
+                black.style.left = '0';
+                black.style.width = '100%';
+                black.style.height = '100%';
+                black.style.backgroundColor = 'black';
+                black.style.opacity = '0';
+                black.style.transition = 'opacity 2s ease';
+                black.style.zIndex = '2999';
+                black.style.pointerEvents = 'none';
+                document.body.appendChild(black);
+                transitionBlackOverlay = black;
+                
+                // 开始动画
+                setTimeout(() => {
+                    black.style.opacity = '1';
+                }, 100);
+                
+                setTimeout(() => {
+                    img.style.opacity = '1';
+                    img.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 500);
+                
+                // 完成后切换到视频模式
+                setTimeout(() => {
+                    document.body.removeChild(black);
+                    document.body.removeChild(img);
+                    transitionOverlay = null;
+                    transitionBlackOverlay = null;
+                    
+                    // 启用视频模式
+                    toggleVideoMode(true);
+                    transitionActive = false;
+                }, 2500);
+            }
+        }
+
+        // ===== [新增] 退出视频模式并切换到指定模式 =====
+        function exitVideoMode(targetGalaxy) {
+            // targetGalaxy: true -> 退出后开启银河模式（手势1场景）
+            //              false -> 退出后关闭银河模式（主场景）
+            //              undefined -> 保持原样（非银河模式）
+            // 先关闭视频
+            toggleVideoMode(false);
+            
+            // 重置粒子系统可见性和透明度
+            particleSystem.visible = true;
+            particleSystem.material.opacity = 1;
+            
+            // 根据目标设置银河模式
+            if (targetGalaxy === true) {
+                galaxyMode = true;
+                galaxyTargets = generateGalaxyTargets();
+                playMusic(bgmGalaxy);
+            } else if (targetGalaxy === false) {
+                galaxyMode = false;
+                galaxyTargets = null;
+                if (currentState !== STATE.CELEBRATION) {
+                    playMusic(bgmMain);
+                }
+            } else {
+                // 保持原样（默认非银河）
+                galaxyMode = false;
+                galaxyTargets = null;
+                if (currentState !== STATE.CELEBRATION) {
+                    playMusic(bgmMain);
+                }
+            }
+            
+            // 如果处于庆祝状态，音乐已被庆祝音乐覆盖，这里不再覆盖
+        }
+
         function updateParticles() {
             if (videoMode) return;
 
@@ -829,6 +1026,61 @@
                 }
             }
             const heartCount = heartPositions.length;
+
+            // ===== [新增] 处理照片抽取动画 =====
+            if (photoExtractionActive && extractionTargets.length > 0) {
+                let allArrived = true;
+                for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
+                    const p = particlesData[i];
+                    const target = extractionTargets[i];
+                    if (!target) continue;
+                    p.current.lerp(target, 0.08);
+                    if (p.current.distanceTo(target) > 0.5) {
+                        allArrived = false;
+                    }
+                }
+                if (allArrived && !photoActive) {
+                    // 粒子已聚集，显示照片
+                    photoActive = true;
+                    const randomIndex = Math.floor(Math.random() * photoList.length);
+                    photoElement.src = photoList[randomIndex];
+                    photoElement.classList.add('active');
+                    
+                    // 播放快门声
+                    shutterSound.play().catch(e => log('快门声播放失败: ' + e));
+                    
+                    // 1.5秒后恢复粒子运动并移除相框
+                    setTimeout(() => {
+                        photoExtractionActive = false;
+                        if (photoFrameRing) {
+                            scene.remove(photoFrameRing);
+                            photoFrameRing = null;
+                        }
+                        // 恢复银河模式的目标
+                        if (galaxyMode && galaxyTargets) {
+                            for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
+                                particlesData[i].target.copy(galaxyTargets.targets[i]);
+                            }
+                        }
+                    }, 1500);
+                }
+                // 在照片显示期间，粒子保持不动，所以直接返回，不执行后续普通更新
+                if (photoActive) {
+                    // 但需要更新位置数组，因为粒子已经停在相框上，不需要再移动
+                    for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
+                        const p = particlesData[i];
+                        positions[i*3] = p.current.x;
+                        positions[i*3+1] = p.current.y;
+                        positions[i*3+2] = p.current.z;
+                        colorsAttr[i*3] = p.targetColor.r;
+                        colorsAttr[i*3+1] = p.targetColor.g;
+                        colorsAttr[i*3+2] = p.targetColor.b;
+                    }
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                    particleSystem.geometry.attributes.color.needsUpdate = true;
+                    return; // 跳过后续更新
+                }
+            }
 
             if (galaxyMode && !galaxyTargets) {
                 galaxyTargets = generateGalaxyTargets();
@@ -894,6 +1146,11 @@
                             target.copy(p.baseTarget);
                         }
                     }
+                }
+
+                // 如果正在执行抽取动画，target已经被覆盖，不需要再计算
+                if (photoExtractionActive && extractionTargets.length > 0) {
+                    target.copy(extractionTargets[i]);
                 }
 
                 // 加快粒子聚合速度：将 lerp 系数从 0.02 改为 0.08
@@ -1110,26 +1367,20 @@
             }
             if (e.key === 'o' || e.key === 'O') {
                 if (galaxyMode && !photoActive && !videoMode) {
-                    const randomIndex = Math.floor(Math.random() * photoList.length);
-                    photoElement.src = photoList[randomIndex];
-                    photoActive = true;
-                    photoElement.classList.add('active');
-                    log('OK手势模拟按下');
+                    // 触发抽取仪式
+                    startPhotoExtraction();
                 }
             }
             if (e.key === '2') {
                 if (currentState !== STATE.INTRO) {
-                    toggleVideoMode(!videoMode);
+                    // 触发转场到视频
+                    startTransitionToVideo();
                 }
             }
         });
         document.addEventListener('keyup', (e) => {
             if (e.key === 'o' || e.key === 'O') {
-                if (galaxyMode && photoActive) {
-                    photoActive = false;
-                    photoElement.classList.remove('active');
-                    log('OK手势模拟松开');
-                }
+                // 不再需要松开处理，因为照片会保持显示一段时间
             }
         });
 
@@ -1213,10 +1464,12 @@
             });
             
             hands.onResults((results) => {
+                // 先进行手势识别（无论是否视频模式）
+                let isFist = false, isPalm = false, isOne = false, isOk = false, isYa = false;
+                
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     const landmarks = results.multiHandLandmarks[0];
                     
-                    // 手势识别
                     const wrist = landmarks[0];
                     const tipIndices = [4, 8, 12, 16, 20];
                     const mcpIndices = [2, 5, 9, 13, 17];
@@ -1233,11 +1486,11 @@
                     const fistThreshold = 1.5;
                     const palmThreshold = 2.2;
                     
-                    const isFist = fingerRatios.every(r => r < fistThreshold);
-                    const isPalm = fingerRatios.every(r => r > palmThreshold);
+                    isFist = fingerRatios.every(r => r < fistThreshold);
+                    isPalm = fingerRatios.every(r => r > palmThreshold);
                     
                     const oneThreshold = 2.0;
-                    const isOne = (fingerRatios[1] > oneThreshold) && 
+                    isOne = (fingerRatios[1] > oneThreshold) && 
                                  fingerRatios.slice(2).every(r => r < fistThreshold);
                     
                     const thumbTip = landmarks[4];
@@ -1249,7 +1502,7 @@
                     const okDistThreshold = 0.15;
                     const isOkPinch = thumbIndexDist < okDistThreshold;
                     const otherFingersStraight = fingerRatios[2] > 1.8 && fingerRatios[3] > 1.8 && fingerRatios[4] > 1.8;
-                    const isOk = isOkPinch && otherFingersStraight;
+                    isOk = isOkPinch && otherFingersStraight;
 
                     const yaThreshold = 1.8;
                     const isIndexStraight = fingerRatios[1] > yaThreshold;
@@ -1257,40 +1510,65 @@
                     const isRingBent = fingerRatios[3] < 1.5;
                     const isPinkyBent = fingerRatios[4] < 1.5;
                     const isThumbBent = fingerRatios[0] < 1.5;
-                    const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
+                    isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
                     
-                    if (isOk) {
-                        handGesture = 'ok';
-                        if (galaxyMode && !photoActive && !videoMode) {
-                            const randomIndex = Math.floor(Math.random() * photoList.length);
-                            photoElement.src = photoList[randomIndex];
-                            photoActive = true;
-                            photoElement.classList.add('active');
+                    // 根据当前模式处理手势
+                    if (videoMode) {
+                        // 视频模式下的手势处理
+                        // 更新摄像头状态显示
+                        if (isYa) handGesture = 'ya';
+                        else if (isOne) handGesture = 'one';
+                        else if (isFist) handGesture = 'fist';
+                        else if (isOk) handGesture = 'ok';
+                        else if (isPalm) handGesture = 'palm';
+                        else handGesture = 'unknown';
+                        
+                        ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]";
+                        ui.camStatusText.innerText = handGesture.toUpperCase();
+                        ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
+                        
+                        // 检测边缘触发：YA、ONE、FIST
+                        if (isYa && !lastYaGesture) {
+                            // YA手势：退出视频并回到之前状态（非银河）
+                            exitVideoMode(undefined);
                         }
-                        // 重置其他手势标志
-                        lastOneGesture = false;
-                        lastYaGesture = false;
-                    } else if (isYa) {
-                        handGesture = 'ya';
-                        // 边缘检测：只有刚出现时才触发
-                        if (!lastYaGesture) {
-                            toggleVideoMode(!videoMode);
+                        if (isOne && !lastOneGesture) {
+                            // ONE手势：退出视频并开启银河模式
+                            exitVideoMode(true);
                         }
-                        lastYaGesture = true;
-                        lastOneGesture = false;
+                        if (isFist && !lastFistGesture) {
+                            // FIST手势：退出视频并关闭银河模式
+                            exitVideoMode(false);
+                        }
+                        
+                        // 更新边缘检测标志
+                        lastYaGesture = isYa;
+                        lastOneGesture = isOne;
+                        lastFistGesture = isFist;
+                        // 其他手势不影响这些标志
                     } else {
-                        if (handGesture === 'ok' && photoActive) {
-                            photoActive = false;
-                            photoElement.classList.remove('active');
-                        }
-                        if (isOne) {
+                        // 非视频模式下的手势处理
+                        // 更新手势变量
+                        if (isOk) {
+                            handGesture = 'ok';
+                            if (galaxyMode && !photoActive && !videoMode && !photoExtractionActive && !transitionActive) {
+                                // OK手势：触发抽取仪式（边缘检测）
+                                if (!lastOkGesture) {
+                                    startPhotoExtraction();
+                                }
+                            }
+                        } else if (isYa) {
+                            handGesture = 'ya';
+                            if (!lastYaGesture) {
+                                // YA手势：触发转场到视频
+                                startTransitionToVideo();
+                            }
+                        } else if (isOne) {
                             handGesture = 'one';
-                            // 边缘检测：只有刚出现时才触发
                             if (!lastOneGesture) {
-                                // 切换银河模式，并确保视频模式关闭
+                                // ONE手势：切换银河模式
                                 galaxyMode = !galaxyMode;
                                 if (galaxyMode) {
-                                    // 如果要开启银河模式，先关闭视频模式
                                     if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
                                     playMusic(bgmGalaxy);
@@ -1301,45 +1579,51 @@
                                 }
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                             }
-                            lastOneGesture = true;
-                            lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
-                            // 握拳开始生日流程
-                            if (currentState === STATE.IDLE) {
-                                startSequence();
+                            if (!lastFistGesture) {
+                                // FIST手势：启动生日流程
+                                if (currentState === STATE.IDLE) {
+                                    startSequence();
+                                }
                             }
-                            lastOneGesture = false;
-                            lastYaGesture = false;
                         } else if (isPalm) {
                             handGesture = 'palm';
-                            lastOneGesture = false;
-                            lastYaGesture = false;
                         } else {
                             handGesture = 'unknown';
-                            lastOneGesture = false;
-                            lastYaGesture = false;
                         }
-                    }
-                    
-                    ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]";
-                    ui.camStatusText.innerText = handGesture.toUpperCase();
-                    ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
-                    
-                    if (interactionMode === 1 && !galaxyMode && !videoMode) {
-                        const currentHandX = landmarks[9].x; 
-                        const delta = currentHandX - lastHandX;
-                        if (Math.abs(delta) > 0.002) {
-                            rotationVelocity += delta * -0.4; 
+                        
+                        // 更新边缘检测标志
+                        lastOkGesture = isOk;
+                        lastYaGesture = isYa;
+                        lastOneGesture = isOne;
+                        lastFistGesture = isFist;
+                        
+                        // 处理照片移除（如果手势不是OK且照片还显示，但照片会自己消失，所以不用管）
+                        
+                        ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]";
+                        ui.camStatusText.innerText = handGesture.toUpperCase();
+                        ui.camStatusText.className = "text-[8px] text-green-400 font-mono font-bold";
+                        
+                        if (interactionMode === 1 && !galaxyMode && !videoMode) {
+                            const currentHandX = landmarks[9].x; 
+                            const delta = currentHandX - lastHandX;
+                            if (Math.abs(delta) > 0.002) {
+                                rotationVelocity += delta * -0.4; 
+                            }
+                            lastHandX = currentHandX;
                         }
-                        lastHandX = currentHandX;
                     }
                 } else {
+                    // 没有检测到手
                     if (!useMouseControl) {
                         handGesture = 'unknown';
                     }
+                    // 重置所有边缘检测标志
                     lastOneGesture = false;
+                    lastOkGesture = false;
                     lastYaGesture = false;
+                    lastFistGesture = false;
                     if (photoActive) {
                         photoActive = false;
                         photoElement.classList.remove('active');
@@ -1349,6 +1633,7 @@
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
                 }
 
+                // 绘制摄像头预览（无论模式）
                 const ctx = document.getElementById('output_canvas').getContext('2d');
                 ctx.clearRect(0, 0, 160, 120);
                 if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
