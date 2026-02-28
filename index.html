@@ -19,56 +19,201 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        /* 樣式保持不變，與上一版相同，此處省略以節省空間，實際使用時請保留完整樣式 */
         :root { --bg-gradient: radial-gradient(circle at center, #1a0b1a 0%, #000000 100%); }
-        body { margin: 0; overflow: hidden; background-color: #000000; background-image: var(--bg-gradient); font-family: 'Noto Serif SC', serif; color: white; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+        body { 
+            margin: 0; overflow: hidden; 
+            background-color: #000000; background-image: var(--bg-gradient); 
+            font-family: 'Noto Serif SC', serif; color: white; 
+            user-select: none; -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: grab; }
         #canvas-container:active { cursor: grabbing; }
+        
+        /* 翻转卡片 */
         .flip-card { background-color: transparent; perspective: 1000px; }
-        .flip-card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
+        .flip-card-inner {
+            position: relative; width: 100%; height: 100%; text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+        }
         .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
-        .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 1.2rem; overflow: hidden; }
+        .flip-card-front, .flip-card-back {
+            position: absolute; width: 100%; height: 100%;
+            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            border-radius: 1.2rem; overflow: hidden;
+        }
         .flip-card-back { transform: rotateY(180deg); }
+
+        /* UI 层 */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; box-sizing: border-box; transition: opacity 0.5s; }
         .interactive-element { pointer-events: auto; cursor: pointer; }
         .input_video { display: none; }
         .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
-        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; justify-content: center; align-items: center; pointer-events: auto; transition: opacity 0.8s ease, visibility 0.8s; }
+        
+        /* 启动页样式 */
+        #start-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); 
+            z-index: 9999; 
+            display: flex; justify-content: center; align-items: center; 
+            pointer-events: auto;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
         #start-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        .start-card { background: rgba(20, 10, 20, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 105, 180, 0.3); box-shadow: 0 0 50px rgba(255, 105, 180, 0.2); }
+        
+        .start-card {
+            background: rgba(20, 10, 20, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 105, 180, 0.3);
+            box-shadow: 0 0 50px rgba(255, 105, 180, 0.2);
+        }
+
+        #blow-meter-container { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); width: 280px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; opacity: 0; transition: opacity 0.5s; }
+        #blow-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ff9a9e 0%, #ff69b4 100%); border-radius: 10px; transition: width 0.1s linear; box-shadow: 0 0 15px #ff69b4; }
+        #blow-hint { position: absolute; bottom: 18%; width: 100%; text-align: center; font-size: 14px; color: rgba(255,255,255,0.8); text-shadow: 0 2px 4px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.5s; }
+
         #surprise-layer { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 80; pointer-events: none; transition: background 0.5s ease; }
         #surprise-layer.hidden { display: none !important; }
         #surprise-layer.active { pointer-events: auto; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); }
+
         .font-handwriting { font-family: 'Dancing Script', cursive; }
         .pop-in { animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .animate-float { animation: float 3s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .safe-click-area { z-index: 90; position: relative; touch-action: manipulation; }
         .neon-text { text-shadow: 0 0 10px rgba(255,105,180,0.7), 0 0 20px rgba(255,105,180,0.5); }
-        #floating-gift-btn { position: absolute; bottom: 30px; right: 30px; z-index: 200; width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 105, 180, 0.5); display: flex; justify-content: center; align-items: center; font-size: 30px; cursor: pointer; box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); animation: float-btn 3s ease-in-out infinite; transition: transform 0.3s, background 0.3s; pointer-events: auto; }
+
+        #floating-gift-btn {
+            position: absolute; bottom: 30px; right: 30px; z-index: 200; width: 60px; height: 60px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 105, 180, 0.5);
+            display: flex; justify-content: center; align-items: center; font-size: 30px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); animation: float-btn 3s ease-in-out infinite;
+            transition: transform 0.3s, background 0.3s; pointer-events: auto;
+        }
         #floating-gift-btn:hover { transform: scale(1.1) rotate(10deg); background: rgba(255, 105, 180, 0.3); }
         #floating-gift-btn.hidden { display: none !important; }
         @keyframes float-btn { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        #top-banner { position: absolute; top: 15%; left: 0; width: 100%; text-align: center; pointer-events: none; z-index: 5; animation: float-banner 4s ease-in-out infinite; }
+
+        #top-banner {
+            position: absolute; top: 15%; left: 0; width: 100%;
+            text-align: center; pointer-events: none; z-index: 5;
+            animation: float-banner 4s ease-in-out infinite;
+        }
         #top-banner.hidden { display: none !important; }
-        .banner-text { font-family: 'Dancing Script', cursive; background: linear-gradient(to right, #ff9a9e, #fad0c4, #fad0c4, #a18cd1, #fbc2eb); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 10px rgba(255,192,203,0.8)); }
+        .banner-text {
+            font-family: 'Dancing Script', cursive;
+            background: linear-gradient(to right, #ff9a9e, #fad0c4, #fad0c4, #a18cd1, #fbc2eb);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(0 0 10px rgba(255,192,203,0.8));
+        }
         @keyframes float-banner { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
-        #protocol-warning { position: fixed; top: 0; left: 0; width: 100%; background: #ff4444; color: white; text-align: center; padding: 10px; z-index: 10000; font-size: 14px; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-        #cam-preview-container { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        #cam-preview-container:hover { transform: scale(1.05); opacity: 1; }
-        @keyframes neon-pulse { 0%, 100% { text-shadow: 0 0 10px rgba(255,105,180,0.7), 0 0 20px rgba(255,105,180,0.5); } 50% { text-shadow: 0 0 20px rgba(255,105,180,0.9), 0 0 30px rgba(255,105,180,0.7), 0 0 40px rgba(255,105,180,0.5); } }
+
+        #protocol-warning {
+            position: fixed; top: 0; left: 0; width: 100%; background: #ff4444; color: white;
+            text-align: center; padding: 10px; z-index: 10000; font-size: 14px; display: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        #cam-preview-container {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #cam-preview-container:hover {
+            transform: scale(1.05);
+            opacity: 1;
+        }
+        
+        @keyframes neon-pulse {
+            0%, 100% { text-shadow: 0 0 10px rgba(255,105,180,0.7), 0 0 20px rgba(255,105,180,0.5); }
+            50% { text-shadow: 0 0 20px rgba(255,105,180,0.9), 0 0 30px rgba(255,105,180,0.7), 0 0 40px rgba(255,105,180,0.5); }
+        }
         .neon-pulse { animation: neon-pulse 2s infinite; }
+
+        /* 隐藏的日志容器 */
         #debug-console { display: none; }
-        .scrollable-text { max-height: 240px; overflow-y: auto; padding-right: 10px; scrollbar-width: thin; scrollbar-color: rgba(255,105,180,0.5) transparent; }
-        .scrollable-text::-webkit-scrollbar { width: 4px; }
-        .scrollable-text::-webkit-scrollbar-track { background: transparent; }
-        .scrollable-text::-webkit-scrollbar-thumb { background-color: rgba(255, 105, 180, 0.5); border-radius: 10px; }
-        #galaxy-photo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); width: 300px; height: 400px; object-fit: cover; border: 8px solid #e0c060; border-radius: 12px; box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 1000; pointer-events: none; }
-        #galaxy-photo.active { transform: translate(-50%, -50%) scale(1); }
-        #video-mode-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; background: black; }
-        #video-mode-container.active { display: block; }
-        #video-player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: black; }
-        #video-text { position: absolute; left: 5%; top: 50%; transform: translateY(-50%); max-width: 40%; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); pointer-events: none; z-index: 2100; font-family: 'MingLiU', 'PMingLiU', '細明體', 'Noto Serif SC', serif; color: #E6E6FA; font-size: 0.5rem; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; }
+
+        /* 滚动文字区域样式 */
+        .scrollable-text {
+            max-height: 240px; /* 限制高度 */
+            overflow-y: auto;  /* 允许垂直滚动 */
+            padding-right: 10px; /* 给滚动条留点空 */
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(255,105,180,0.5) transparent; /* Firefox */
+        }
+        /* Chrome/Safari 滚动条样式 */
+        .scrollable-text::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollable-text::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollable-text::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 105, 180, 0.5);
+            border-radius: 10px;
+        }
+
+        /* ===== 照片样式（金属边框） ===== */
+        #galaxy-photo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 300px;
+            height: 400px;
+            object-fit: cover;
+            border: 8px solid #e0c060;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1000;
+            pointer-events: none;
+        }
+        #galaxy-photo.active {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ===== 影片模式样式 ===== */
+        #video-mode-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            display: none;
+            background: black;
+        }
+        #video-mode-container.active {
+            display: block;
+        }
+        #video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: black;
+        }
+        #video-text {
+            position: absolute;
+            left: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            max-width: 40%;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 2100;
+            /* 字体：细明体 + 后备字体 */
+            font-family: 'MingLiU', 'PMingLiU', '細明體', 'Noto Serif SC', serif;
+            color: #E6E6FA;
+            font-size: 0.5rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* 右下角手势模拟按钮已被移除 (YA 和 OK 按钮) */
     </style>
 </head>
 <body>
@@ -76,21 +221,21 @@
     <div id="debug-console"></div>
 
     <div id="protocol-warning">
-        ⚠️ 檢測到您直接打開了HTML檔案 (file://)。<br>攝影機和麥克風將被攔截。<br>
-        <b>請在 VS Code 中安裝 "Live Server" 插件並使用 "Open with Live Server" 執行。</b>
+        ⚠️ 检测到您直接打开了HTML文件 (file://)。<br>摄像头和麦克风将被拦截。<br>
+        <b>请在 VS Code 中安装 "Live Server" 插件并使用 "Open with Live Server" 运行。</b>
     </div>
 
-    <!-- 多首音樂元素，加上 preload="auto" 確保預加載 -->
-    <audio id="bgm-main" loop preload="auto">
+    <!-- 多首音樂元素 -->
+    <audio id="bgm-main" loop>
         <source src="./src/bgm_main.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-celebration" loop preload="auto">
+    <audio id="bgm-celebration" loop>
         <source src="./src/bgm_celebration.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-galaxy" loop preload="auto">
+    <audio id="bgm-galaxy" loop>
         <source src="./src/bgm_galaxy.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-video" loop preload="auto">
+    <audio id="bgm-video" loop>
         <source src="./src/bgm_video.mp3" type="audio/mpeg">
     </audio>
 
@@ -99,37 +244,40 @@
     
     <button id="floating-gift-btn" class="hidden safe-click-area" title="查看祝福">🎁</button>
 
-    <!-- 銀河照片 -->
+    <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
-    <!-- ===== 影片模式容器（靜音以確保自動播放） ===== -->
+    <!-- ===== 影片模式容器（无控制条，自动播放） ===== -->
     <div id="video-mode-container">
-        <video id="video-player" src="./src/video.mp4" playsinline loop muted preload="auto"></video>
+        <!-- 移除 autoplay，添加 preload="none" 避免预加载声音 -->
+        <video id="video-player" src="./src/video.mp4" playsinline loop preload="none"></video>
         <div id="video-text"></div>
     </div>
 
-    <!-- 啟動頁 -->
+    <!-- 启动页 -->
     <div id="start-overlay">
         <div class="text-center max-w-md p-8 glass-panel start-card mx-4 animate-float">
             <h1 class="text-6xl mb-2 font-handwriting text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-purple-400 drop-shadow-lg">For the only one</h1>
             <div class="space-y-4 text-gray-200 text-lg mb-8 font-light">
                 <p>☝️ <b>點擊進入專屬通道</b> 將喚醒魔法</p>
-                <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未檢測到攝影機，請使用滑鼠左鍵控制聚集/散開，鍵盤1/2/O模擬手勢</p>
+                        <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未检测到摄像头，请使用鼠标左键控制聚集/散开，键盘1/2/O模拟手势</p>
             </div>
             <button id="start-btn" class="safe-click-area px-12 py-4 bg-gradient-to-r from-pink-600 to-purple-700 rounded-full font-bold text-xl hover:scale-105 active:scale-95 transition transform shadow-[0_0_20px_rgba(255,105,180,0.5)] text-white border border-white/20 cursor-pointer z-50">
                 進入專屬通道
             </button>
-            <div id="loading-text" class="hidden mt-4 text-pink-300 text-sm">正在編織星光...</div>
+            <div id="loading-text" class="hidden mt-4 text-pink-300 text-sm">正在编织星光...</div>
         </div>
     </div>
 
-    <!-- 頂部橫幅 -->
+    <div id="blow-hint"><p class="text-lg font-bold text-pink-200 mb-1">對著麥克風吹氣</p><p class="text-xs text-gray-400">(如果麦克风不灵可以尝试电脑长按空格 · 手机长按屏幕)</p></div>
+    <div id="blow-meter-container"><div id="blow-meter-bar"></div></div>
+
     <div id="top-banner" class="hidden">
         <h1 class="text-6xl md:text-8xl banner-text">For the only one</h1>
         <p class="text-pink-200/70 text-lg mt-2 tracking-widest uppercase">Wishing you happiness every day</p>
     </div>
 
-    <!-- UI 層 -->
+    <!-- UI 层 -->
     <div id="ui-layer" style="display: none;">
         <div class="flex justify-between items-start w-full">
             <div class="glass-panel px-4 py-2">
@@ -141,7 +289,6 @@
             </div>
         </div>
         
-        <!-- 中心提示區塊 -->
         <div id="center-instruction" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-full z-0">
             <div class="flex items-center justify-center gap-4 mb-2">
                 <span id="hand-icon" class="text-6xl animate-bounce">👋</span>
@@ -150,7 +297,7 @@
             <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">讓魔法發生</p>
         </div>
 
-        <!-- 攝影機預覽框 -->
+        <!-- 摄像头预览框 -->
         <div id="cam-preview-container" class="absolute bottom-6 left-6 z-50 opacity-90 hover:opacity-100">
             <div class="glass-panel p-2 rounded-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
                 <div class="relative w-36 h-28 bg-black/40 rounded-lg overflow-hidden border border-white/5">
@@ -167,10 +314,11 @@
         </div>
     </div>
 
-    <!-- 驚喜層（卡片） -->
+    <!-- 惊喜层 -->
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
+        <!-- 卡片（只保留第一页，边框线固定） -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -186,7 +334,7 @@
     </div>
 
     <script>
-        // --- 除錯日誌工具 ---
+        // --- 调试日志工具 ---
         const debugConsole = document.getElementById('debug-console');
         function log(msg) {
             if (debugConsole) {
@@ -211,7 +359,7 @@
             './src/5.jpg'
         ];
 
-        // ===== 影片文字列表（打字機用）=====
+        // ===== 影片文字列表（打字机用）=====
         const videoMessages = [
             "有些感情，悄悄來到。",
             "不張揚，卻讓日常有了溫度。",
@@ -225,7 +373,7 @@
             "未來亦會如此。",
         ];
 
-        // ===== 卡片祝福語（第一頁）=====
+        // ===== 卡片祝福语（第一页）=====
         const wishes_part1 = [
             "❤️每一個場景都有❤️",
             "一首專屬的歌曲🎵",
@@ -237,9 +385,10 @@
             "　ﾟ･｡･ﾟ",
         ];
 
-        // --- 全局變數 ---
-        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4 };
-        const STATE = { INTRO: -1, IDLE: 0, CELEBRATION: 2 };
+        // --- 全局变量 ---
+        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" }; // 保留但不再使用
+        const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4, blowThreshold: 25, blowMaxDuration: 100 };
+        const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -248,6 +397,9 @@
         let scene, camera, renderer, particleSystem;
         let time = 0;
         let shapeCache = {}; 
+        let blowProgress = 0;
+        let isSpacePressed = false; 
+        let isTouching = false; 
         
         let rotationVelocity = 0;
         let isDragging = false;
@@ -255,30 +407,24 @@
         let lastHandX = 0;
         let autoRotateSpeed = 0.001;
 
-        // --- 手勢狀態 ---
+        // --- 手势状态 ---
         let handGesture = 'unknown';
         let lastOneGesture = false;
         let lastOkGesture = false;
         let lastYaGesture = false;
 
-        // --- 手勢冷卻時間 (毫秒) ---
-        const GESTURE_COOLDOWN = 3000; // 3秒
-        let lastOneSwitchTime = 0;
-        let lastYaSwitchTime = 0;
-
-        // --- 銀河模式 ---
+        // --- 银河模式 ---
         let galaxyMode = false;
         let galaxyTargets = null;
 
-        // --- OK手勢照片控制 ---
-        let photoGrabbed = false;
-        let currentPhotoIndex = 0;
+        // --- OK手势照片控制 ---
+        let photoActive = false;
         const photoElement = document.getElementById('galaxy-photo');
 
-        // ===== 影片模式相關 =====
+        // ===== 影片模式相关 =====
         let videoMode = false;
         let typewriterInterval = null;
-        let typewriterTimeout = null; 
+        let typewriterTimeout = null; // 段间暂停超时（不再使用，保留以防万一）
         const videoContainer = document.getElementById('video-mode-container');
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
@@ -290,64 +436,13 @@
         const bgmVideo = document.getElementById('bgm-video');
         let currentMusic = null;
 
-        // 設定所有音樂音量為最大
-        [bgmMain, bgmCelebration, bgmGalaxy, bgmVideo].forEach(audio => {
-            if (audio) audio.volume = 1.0;
-        });
-
-        // ========== 強化版音樂播放函數 ==========
-        function playMusic(musicElement, musicName = '') {
-            if (!musicElement) {
-                log(`播放失敗: musicElement 為空`);
-                ui.statusText.innerText = `MUSIC ERROR: no element`;
-                return;
-            }
-
-            // 如果當前音樂是同一元素
-            if (currentMusic === musicElement) {
-                if (musicElement.paused) {
-                    log(`嘗試恢復音樂 ${musicName}`);
-                    musicElement.play().then(() => {
-                        log(`音樂 ${musicName} 恢復成功`);
-                        ui.statusText.innerText = `NOW PLAYING: ${musicName}`;
-                    }).catch(e => {
-                        log(`音樂 ${musicName} 恢復失敗: ${e}`);
-                        ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
-                        // 嘗試重新加載並播放
-                        musicElement.load();
-                        musicElement.play().catch(e2 => {
-                            log(`音樂 ${musicName} 重試失敗: ${e2}`);
-                        });
-                    });
-                } else {
-                    log(`音樂 ${musicName} 已在播放`);
-                }
-                return;
-            }
-
-            // 暫停當前音樂
-            if (currentMusic) {
+        function playMusic(musicElement) {
+            if (!musicElement) return;
+            if (currentMusic && currentMusic !== musicElement) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
-
-            // 播放新音樂
-            log(`嘗試播放音樂 ${musicName}`);
-            musicElement.load(); // 重新加載以確保從頭播放
-            musicElement.play().then(() => {
-                log(`音樂 ${musicName} 播放成功`);
-                ui.statusText.innerText = `NOW PLAYING: ${musicName}`;
-            }).catch(e => {
-                log(`音樂 ${musicName} 播放失敗: ${e}`);
-                ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
-                // 嘗試一次重試（延遲200ms）
-                setTimeout(() => {
-                    musicElement.load();
-                    musicElement.play().catch(e2 => {
-                        log(`音樂 ${musicName} 重試失敗: ${e2}`);
-                    });
-                }, 200);
-            });
+            musicElement.play().catch(e => log('音樂播放失敗: ' + e));
             currentMusic = musicElement;
         }
 
@@ -359,118 +454,58 @@
             }
         }
 
-        // ===== 慶祝主場景（握拳直接進入） =====
+        function fadeAudioIn() {
+            playMusic(bgmMain);
+        }
+
         function successCelebration() {
-            log('進入慶祝主場景');
+            log('许愿成功！播放庆祝动画');
             currentState = STATE.CELEBRATION;
+            ui.statusText.innerText = "WISH GRANTED";
+            ui.blowMeter.style.opacity = '0';
+            ui.blowHint.style.opacity = '0';
             
-            // 隱藏中心提示
-            if (ui.centerInstruction) ui.centerInstruction.style.display = 'none';
-            if (ui.handIcon) ui.handIcon.style.display = 'none';
-
-            // 確保卡片層隱藏
-            ui.surpriseLayer.classList.remove('active');
-            ui.surpriseLayer.classList.add('hidden');
-            ui.cardContainer.classList.add('hidden');
-            ui.revealBtn.classList.add('hidden');
-
-            // 粒子慶祝效果
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
             particlesData.forEach(p => {
-                if (p.type === 'heart') {
+                if (p.type === 'heart' || p.type === 'cake') {
                     p.target.y += Math.sin(p.current.x * 0.5) * 0.5; 
+                } else if (p.type !== 'bg') {
+                    p.type = 'bg'; 
                 }
             });
 
-            playMusic(bgmCelebration, 'Celebration');
+            playMusic(bgmCelebration);
 
-            // 設定互動模式為可旋轉，並顯示頂部橫幅
-            interactionMode = 1;
-            ui.topBanner.classList.remove('hidden');
+            setTimeout(() => {
+                ui.surpriseLayer.classList.remove('hidden');
+                ui.surpriseLayer.classList.add('active');
+                ui.revealBtn.classList.remove('hidden');
+            }, 1500);
         }
-
-        // 輔助函數：隱藏照片
-        function hidePhoto() {
-            photoGrabbed = false;
-            photoElement.classList.remove('active');
-        }
-
-        // 輔助函數：顯示照片
-        function showPhoto(index = currentPhotoIndex) {
-            if (!galaxyMode || videoMode) return;
-            currentPhotoIndex = (index + photoList.length) % photoList.length;
-            photoElement.src = photoList[currentPhotoIndex];
-            photoElement.classList.add('active');
-        }
-
-        // 切換照片函數（direction: 1 下一張, -1 上一張）
-        function switchPhoto(direction) {
-            if (!galaxyMode || videoMode || !photoGrabbed) return;
-            const newIndex = (currentPhotoIndex + direction + photoList.length) % photoList.length;
-            if (newIndex === currentPhotoIndex) return;
-            currentPhotoIndex = newIndex;
-            photoElement.src = photoList[currentPhotoIndex];
-            log(`切換到照片: ${currentPhotoIndex + 1}`);
-        }
-
-        // ===== 左右滑動手勢切換照片 =====
-        let touchStartX = 0;
-        let touchStartY = 0;
-        const SWIPE_THRESHOLD = 30;
-
-        document.addEventListener('touchstart', (e) => {
-            if (!galaxyMode || videoMode || !photoGrabbed) return;
-            const target = e.target;
-            const isUIElement = target.closest('button, .interactive-element, #floating-gift-btn, #close-card-btn, #reveal-btn, #music-btn, .safe-click-area');
-            if (isUIElement) return;
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-        }, { passive: true });
-
-        document.addEventListener('touchend', (e) => {
-            if (!galaxyMode || videoMode || !photoGrabbed) return;
-            const target = e.target;
-            const isUIElement = target.closest('button, .interactive-element, #floating-gift-btn, #close-card-btn, #reveal-btn, #music-btn, .safe-click-area');
-            if (isUIElement) return;
-            if (touchStartX === 0) return;
-
-            const touchEndX = e.changedTouches[0].clientX;
-            const touchEndY = e.changedTouches[0].clientY;
-            const deltaX = touchEndX - touchStartX;
-            const deltaY = touchEndY - touchStartY;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
-                if (deltaX > 0) {
-                    switchPhoto(-1); // 右滑上一張
-                } else {
-                    switchPhoto(1);  // 左滑下一張
-                }
-            }
-
-            touchStartX = 0;
-        }, { passive: true });
 
         function toggleVideoMode(enable) {
             if (enable === videoMode) return;
             videoMode = enable;
             if (videoMode) {
+                // 进入视频模式，关闭银河模式
                 galaxyMode = false;
                 galaxyTargets = null;
-                hidePhoto();
+                if (photoActive) photoActive = false;
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
-                videoPlayer.muted = true;
-                videoPlayer.play().catch(e => log('影片自動播放失敗: ' + e));
+                // 视频开始播放（已移除autoplay，此处手动播放）
+                videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
                 startTypewriter();
                 stopAllMusic();
-                playMusic(bgmVideo, 'Video');
+                playMusic(bgmVideo);
             } else {
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
                 videoPlayer.pause();
+                // 清除打字机相关定时器
                 if (typewriterInterval) {
                     clearInterval(typewriterInterval);
                     typewriterInterval = null;
@@ -480,19 +515,20 @@
                     typewriterTimeout = null;
                 }
                 videoText.textContent = '';
-                // 根據當前狀態恢復音樂
+                // 根据当前状态恢复音乐
                 if (galaxyMode) {
-                    playMusic(bgmGalaxy, 'Galaxy');
+                    playMusic(bgmGalaxy);
                 } else if (currentState === STATE.CELEBRATION) {
-                    playMusic(bgmCelebration, 'Celebration');
+                    playMusic(bgmCelebration);
                 } else {
-                    playMusic(bgmMain, 'Main');
+                    playMusic(bgmMain);
                 }
             }
         }
 
-        // 打字機效果（影片文字）
+        // 打字机效果：每段文字依次打出，保留不消失，段落间自动换行，全部打完后停止
         function startTypewriter() {
+            // 清除之前的定时器
             if (typewriterInterval) {
                 clearInterval(typewriterInterval);
                 typewriterInterval = null;
@@ -501,14 +537,15 @@
                 clearTimeout(typewriterTimeout);
                 typewriterTimeout = null;
             }
-            videoText.textContent = '';
+            videoText.textContent = ''; // 开始时清空
 
             let messageIndex = 0;
             let charIndex = 0;
-            const speed = 350;
+            const speed = 350; // 打字速度（毫秒/字符）
 
             function typeNext() {
                 if (messageIndex >= videoMessages.length) {
+                    // 所有段落已打完，停止
                     if (typewriterInterval) {
                         clearInterval(typewriterInterval);
                         typewriterInterval = null;
@@ -518,21 +555,26 @@
                 const currentMessage = videoMessages[messageIndex];
 
                 if (charIndex < currentMessage.length) {
+                    // 逐字输出
                     videoText.textContent += currentMessage.charAt(charIndex);
                     charIndex++;
                 } else {
-                    videoText.textContent += '\n';
+                    // 当前段落已打完，添加换行，并移动到下一段
+                    videoText.textContent += '\n'; // 使用 \n 换行（需配合 white-space: pre-wrap）
                     messageIndex++;
                     charIndex = 0;
+                    // 继续打字（由 interval 自动调用下一轮）
                 }
             }
 
             typewriterInterval = setInterval(typeNext, speed);
         }
 
-        // --- 攝影機可用標誌及滑鼠控制標誌 ---
+        // --- 摄像头可用标志及鼠标控制标志 ---
         let cameraAvailable = false;
         let useMouseControl = false;
+
+        let audioContext, analyser;
 
         const ui = {
             startOverlay: document.getElementById('start-overlay'),
@@ -542,7 +584,9 @@
             mainText: document.getElementById('instruction-text'),
             subText: document.getElementById('sub-instruction'),
             handIcon: document.getElementById('hand-icon'),
-            centerInstruction: document.getElementById('center-instruction'),
+            blowMeter: document.getElementById('blow-meter-container'),
+            blowBar: document.getElementById('blow-meter-bar'),
+            blowHint: document.getElementById('blow-hint'),
             surpriseLayer: document.getElementById('surprise-layer'),
             revealBtn: document.getElementById('reveal-btn'),
             floatingGiftBtn: document.getElementById('floating-gift-btn'),
@@ -654,10 +698,15 @@
             return new THREE.CanvasTexture(c);
         }
 
-        function getShapePoints(type) {
+        // ==================== 爱心生成 ====================
+        function getShapePoints(type, text) {
             const points = [];
-            if (type === 'cake') {
+            if (type === 'text') {
+                // 不再使用数字粒子，但保留函数以防万一
+                return points;
+            } else if (type === 'cake') {
                 const totalCount = IS_MOBILE ? 2000 : 3500;
+                // 爱心大小 1.2
                 const scale = 1.2;
 
                 for (let i = 0; i < totalCount; i++) {
@@ -687,6 +736,7 @@
 
         function preloadShapes() {
             setTimeout(() => {
+                // 仅预加载爱心形状，移除数字粒子
                 shapeCache['cake'] = getShapePoints('cake');
                 ui.loadingText.style.display = 'none';
             }, 100);
@@ -784,13 +834,17 @@
                 galaxyTargets = generateGalaxyTargets();
             } else if (!galaxyMode) {
                 galaxyTargets = null;
-                hidePhoto();
+                if (photoActive) {
+                    photoActive = false;
+                    photoElement.classList.remove('active');
+                }
             }
 
             for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
                 const p = particlesData[i];
                 let target = p.target.clone();
 
+                // 爱心：深红色
                 if (p.type === 'heart') {
                     p.targetColor.set(0x8B0000);
                 }
@@ -810,6 +864,7 @@
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
+                    // 庆祝动画：浅粉色
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
                 else if (currentState === STATE.IDLE) {
@@ -819,17 +874,19 @@
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + target.x * 0.05) * 5; 
                     
+                    // 背景粒子：深灰色
                     if (p.type === 'bg') {
                         p.targetColor.set(0x333333);
                     }
                 }
 
+                // 银河模式覆盖所有颜色
                 if (galaxyMode && galaxyTargets) {
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // 手勢控制粒子聚集/散開（僅在 CELEBRATION 狀態下啟用）
-                    if (p.type === 'bg' && heartCount > 0 && currentState === STATE.CELEBRATION) {
+                    // 非银河模式下的手势控制
+                    if (p.type === 'bg' && heartCount > 0) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
                             target.copy(heartPositions[targetIndex]);
@@ -839,6 +896,7 @@
                     }
                 }
 
+                // 加快粒子聚合速度：将 lerp 系数从 0.02 改为 0.08
                 p.current.lerp(target, 0.08);
 
                 positions[i*3] = p.current.x;
@@ -870,7 +928,31 @@
             }
         }
 
-        // 打字機函數（用於卡片）
+        // --- 业务逻辑 ---
+        let transitionLock = false;
+
+        function startSequence() {
+            if (currentState !== STATE.IDLE || transitionLock) return;
+            transitionLock = true;
+            // 隐藏手图标
+            ui.handIcon.style.display = 'none';
+            // 直接进入吹气阶段，不再显示数字粒子
+            showCake();
+        }
+
+        function showCake() {
+            log('展示爱心，开启吹气检测');
+            currentState = STATE.BLOWING;
+            transitionTo('cake');
+            ui.mainText.innerText = "";
+            ui.subText.innerText = "";
+            ui.topBanner.classList.remove('hidden'); 
+            ui.statusText.innerText = "MIC LISTENING...";
+            ui.blowMeter.style.opacity = '1';
+            ui.blowHint.style.opacity = '1';
+        }
+
+        // 打字机函数（用于卡片）
         function typeWriter(textArray, containerId, speed = 50) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -897,7 +979,7 @@
             type();
         }
 
-        // ===== 卡片控制（僅浮動按鈕觸發） =====
+        // ===== 卡片控制 =====
         ui.revealBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             ui.revealBtn.classList.add('hidden');
@@ -910,44 +992,61 @@
             ui.floatingGiftBtn.classList.add('hidden'); 
             ui.surpriseLayer.classList.remove('hidden'); 
             ui.surpriseLayer.classList.add('active');
-            interactionMode = 0; // 卡片顯示時暫停旋轉
+            interactionMode = 0;
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
         });
 
         ui.closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            ui.mainText.innerText = ""; 
             ui.surpriseLayer.classList.remove('active');
-            ui.surpriseLayer.classList.add('hidden');
-            ui.cardContainer.classList.add('hidden');
-            ui.revealBtn.classList.add('hidden');
+            ui.surpriseLayer.classList.add('hidden');    
             ui.floatingGiftBtn.classList.remove('hidden');
-            // 恢復旋轉模式
-            interactionMode = 1;
+            
+            interactionMode = 1; 
+            transitionTo('cake'); 
+            ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
+            ui.topBanner.classList.remove('hidden');
+            if (!galaxyMode && currentState !== STATE.CELEBRATION) {
+                playMusic(bgmMain);
+            } else if (galaxyMode) {
+                playMusic(bgmGalaxy);
+            } else if (currentState === STATE.CELEBRATION) {
+                playMusic(bgmCelebration);
+            }
         });
 
         ui.startBtn.addEventListener('click', async function() {
-            log('點擊了進入按鈕...');
+            log('点击了进入按钮...');
             const btn = this;
             
             if (typeof Hands === 'undefined') {
-                log('警告: MediaPipe 庫加載延遲。');
+                log('警告: MediaPipe 库加载延迟。');
             }
 
             btn.innerHTML = '<span class="animate-pulse">Loading...</span>';
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
             
-            // 嘗試啟動攝影機
             try {
-                log('嘗試啟動攝影機...');
+                fadeAudioIn();
+                await initAudio();
+                log('音频初始化成功');
+            } catch(e) {
+                log('音频初始化警告: ' + e);
+                ui.statusText.innerText = "AUDIO/MIC LIMITED";
+            }
+
+            try {
+                log('尝试启动摄像头...');
                 await initCamera();
-                log('攝影機啟動成功');
+                log('摄像头启动成功');
                 cameraAvailable = true;
                 useMouseControl = false;
                 ui.mouseHint.classList.add('hidden');
             } catch (e) {
-                log('攝影機/MediaPipe 失敗: ' + e);
+                log('摄像头/MediaPipe 失败: ' + e);
                 ui.statusText.innerText = "CAMERA FAILED - USE MOUSE & KEYBOARD";
                 cameraAvailable = false;
                 useMouseControl = true;
@@ -955,73 +1054,67 @@
                 enableMouseControl();
             }
             
-            log('進入主介面...');
+            log('进入主界面...');
             currentState = STATE.IDLE;
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
-            
-            // 轉換為愛心粒子
-            transitionTo('cake');
-            
-            // 播放主音樂
-            playMusic(bgmMain, 'Main');
         });
 
         function enableMouseControl() {
             const container = document.getElementById('canvas-container');
             container.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
-                if (useMouseControl && currentState === STATE.IDLE && !galaxyMode) {
+                if (useMouseControl && currentState !== STATE.INTRO && !galaxyMode) {
                     handGesture = 'fist';
                 }
             });
             window.addEventListener('mouseup', (e) => {
                 if (e.button !== 0) return;
-                if (useMouseControl && currentState === STATE.IDLE && !galaxyMode) {
+                if (useMouseControl && currentState !== STATE.INTRO && !galaxyMode) {
                     handGesture = 'palm';
                 }
             });
             container.addEventListener('touchstart', (e) => {
-                if (useMouseControl && currentState === STATE.IDLE && !galaxyMode) {
+                if (useMouseControl && currentState !== STATE.INTRO && !galaxyMode) {
                     handGesture = 'fist';
                 }
             }, {passive: true});
             window.addEventListener('touchend', (e) => {
-                if (useMouseControl && currentState === STATE.IDLE && !galaxyMode) {
+                if (useMouseControl && currentState !== STATE.INTRO && !galaxyMode) {
                     handGesture = 'palm';
                 }
             });
         }
 
-        // 鍵盤事件監聽（保留除錯功能）
+        // 键盘事件监听（保留调试功能）
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
                 if (currentState !== STATE.INTRO && !videoMode) {
                     galaxyMode = !galaxyMode;
-                    log(`銀河模式: ${galaxyMode ? '開啟' : '關閉'}`);
+                    log(`银河模式: ${galaxyMode ? '开启' : '关闭'}`);
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
-                        playMusic(bgmGalaxy, 'Galaxy');
+                        playMusic(bgmGalaxy);
                     } else {
                         galaxyTargets = null;
-                        hidePhoto();
-                        if (currentState === STATE.CELEBRATION) {
-                            playMusic(bgmCelebration, 'Celebration');
-                        } else {
-                            playMusic(bgmMain, 'Main');
+                        if (photoActive) {
+                            photoActive = false;
+                            photoElement.classList.remove('active');
+                        }
+                        if (currentState !== STATE.CELEBRATION) {
+                            playMusic(bgmMain);
                         }
                     }
                 }
             }
             if (e.key === 'o' || e.key === 'O') {
-                if (galaxyMode && !videoMode) {
-                    if (!photoGrabbed) {
-                        photoGrabbed = true;
-                        currentPhotoIndex = Math.floor(Math.random() * photoList.length);
-                        showPhoto(currentPhotoIndex);
-                        log('OK手勢模擬抓取照片');
-                    }
+                if (galaxyMode && !photoActive && !videoMode) {
+                    const randomIndex = Math.floor(Math.random() * photoList.length);
+                    photoElement.src = photoList[randomIndex];
+                    photoActive = true;
+                    photoElement.classList.add('active');
+                    log('OK手势模拟按下');
                 }
             }
             if (e.key === '2') {
@@ -1029,19 +1122,85 @@
                     toggleVideoMode(!videoMode);
                 }
             }
-            if (e.key === 'ArrowLeft' && photoGrabbed) {
-                switchPhoto(-1);
-            } else if (e.key === 'ArrowRight' && photoGrabbed) {
-                switchPhoto(1);
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'o' || e.key === 'O') {
+                if (galaxyMode && photoActive) {
+                    photoActive = false;
+                    photoElement.classList.remove('active');
+                    log('OK手势模拟松开');
+                }
             }
         });
 
-        // 攝影機初始化
+        async function initAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                checkAudio();
+            } catch (e) {
+                log('麦克风权限被拒绝');
+                ui.statusText.innerText = "MIC DENIED - USE TOUCH/SPACE";
+                throw e;
+            }
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if(currentState === STATE.BLOWING && !e.target.closest('button') && !e.target.closest('input')) {
+                isTouching = true;
+            }
+        }, {passive: false});
+
+        document.addEventListener('touchend', () => isTouching = false);
+        document.addEventListener('touchcancel', () => isTouching = false);
+        document.addEventListener('keydown', (e) => { 
+            if(e.code === 'Space') isSpacePressed = true; 
+        });
+        document.addEventListener('keyup', (e) => { 
+            if(e.code === 'Space') isSpacePressed = false; 
+        });
+
+        function checkAudio() {
+            requestAnimationFrame(checkAudio);
+            if (currentState !== STATE.BLOWING) return;
+            let volume = 0;
+            if (analyser) {
+                const data = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(data);
+                let sum = 0; for(let i=0; i<data.length; i++) sum += data[i];
+                volume = sum / data.length;
+            }
+            if (volume > VISUAL_CONFIG.blowThreshold || isSpacePressed || isTouching) {
+                blowProgress += 0.8; 
+            } else {
+                blowProgress -= 0.3; 
+            }
+            blowProgress = Math.max(0, Math.min(100, blowProgress));
+            ui.blowBar.style.width = blowProgress + '%';
+            if (blowProgress >= 100) successCelebration();
+        }
+
+        function fadeAudioIn() {
+            playMusic(bgmMain);
+        }
+        
+        document.getElementById('music-btn').addEventListener('click', () => {
+            if (currentMusic) {
+                if (currentMusic.paused) currentMusic.play(); else currentMusic.pause();
+            } else {
+                playMusic(bgmMain);
+            }
+        });
+
         async function initCamera() {
             const video = document.getElementsByClassName('input_video')[0];
             
             if (typeof Hands === 'undefined' || typeof Camera === 'undefined') {
-                throw new Error("MediaPipe 庫未加載");
+                throw new Error("MediaPipe 库未加载");
             }
 
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`});
@@ -1057,7 +1216,7 @@
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     const landmarks = results.multiHandLandmarks[0];
                     
-                    // 手勢識別
+                    // 手势识别
                     const wrist = landmarks[0];
                     const tipIndices = [4, 8, 12, 16, 20];
                     const mcpIndices = [2, 5, 9, 13, 17];
@@ -1100,67 +1259,55 @@
                     const isThumbBent = fingerRatios[0] < 1.5;
                     const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
                     
-                    // ===== OK 手勢：在銀河模式下抓取照片 =====
                     if (isOk) {
                         handGesture = 'ok';
-                        if (galaxyMode && !videoMode) {
-                            if (!photoGrabbed) {
-                                photoGrabbed = true;
-                                currentPhotoIndex = Math.floor(Math.random() * photoList.length);
-                                showPhoto(currentPhotoIndex);
-                                log('OK手勢抓取照片');
-                            }
+                        if (galaxyMode && !photoActive && !videoMode) {
+                            const randomIndex = Math.floor(Math.random() * photoList.length);
+                            photoElement.src = photoList[randomIndex];
+                            photoActive = true;
+                            photoElement.classList.add('active');
                         }
+                        // 重置其他手势标志
                         lastOneGesture = false;
                         lastYaGesture = false;
-                    } 
-                    // ===== Ya 手勢：切換影片模式（加入3秒冷卻）=====
-                    else if (isYa) {
+                    } else if (isYa) {
                         handGesture = 'ya';
+                        // 边缘检测：只有刚出现时才触发
                         if (!lastYaGesture) {
-                            const now = Date.now();
-                            if (now - lastYaSwitchTime >= GESTURE_COOLDOWN) {
-                                toggleVideoMode(!videoMode);
-                                lastYaSwitchTime = now;
-                            } else {
-                                log(`Ya 手勢冷卻中，剩餘 ${Math.ceil((GESTURE_COOLDOWN - (now - lastYaSwitchTime))/1000)} 秒`);
-                            }
-                            lastYaGesture = true;
+                            toggleVideoMode(!videoMode);
                         }
+                        lastYaGesture = true;
                         lastOneGesture = false;
                     } else {
+                        if (handGesture === 'ok' && photoActive) {
+                            photoActive = false;
+                            photoElement.classList.remove('active');
+                        }
                         if (isOne) {
                             handGesture = 'one';
-                            // ===== One 手勢：切換銀河模式（加入3秒冷卻）=====
+                            // 边缘检测：只有刚出现时才触发
                             if (!lastOneGesture) {
-                                const now = Date.now();
-                                if (now - lastOneSwitchTime >= GESTURE_COOLDOWN) {
-                                    galaxyMode = !galaxyMode;
-                                    if (galaxyMode) {
-                                        if (videoMode) toggleVideoMode(false);
-                                        galaxyTargets = generateGalaxyTargets();
-                                        playMusic(bgmGalaxy, 'Galaxy');
-                                    } else {
-                                        galaxyTargets = null;
-                                        hidePhoto();
-                                        if (currentState === STATE.CELEBRATION) {
-                                            playMusic(bgmCelebration, 'Celebration');
-                                        } else {
-                                            playMusic(bgmMain, 'Main');
-                                        }
-                                    }
-                                    ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
-                                    lastOneSwitchTime = now;
+                                // 切换银河模式，并确保视频模式关闭
+                                galaxyMode = !galaxyMode;
+                                if (galaxyMode) {
+                                    // 如果要开启银河模式，先关闭视频模式
+                                    if (videoMode) toggleVideoMode(false);
+                                    galaxyTargets = generateGalaxyTargets();
+                                    playMusic(bgmGalaxy);
                                 } else {
-                                    log(`One 手勢冷卻中，剩餘 ${Math.ceil((GESTURE_COOLDOWN - (now - lastOneSwitchTime))/1000)} 秒`);
+                                    galaxyTargets = null;
+                                    if (photoActive) photoActive = false;
+                                    if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
                                 }
-                                lastOneGesture = true;
+                                ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                             }
+                            lastOneGesture = true;
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
+                            // 握拳开始生日流程
                             if (currentState === STATE.IDLE) {
-                                successCelebration();
+                                startSequence();
                             }
                             lastOneGesture = false;
                             lastYaGesture = false;
@@ -1193,6 +1340,10 @@
                     }
                     lastOneGesture = false;
                     lastYaGesture = false;
+                    if (photoActive) {
+                        photoActive = false;
+                        photoElement.classList.remove('active');
+                    }
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
