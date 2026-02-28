@@ -166,10 +166,13 @@
             box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5);
             transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 1000;
-            pointer-events: none;
+            pointer-events: none; /* 默认不允许交互，显示后改为 auto */
         }
         #galaxy-photo.active {
             transform: translate(-50%, -50%) scale(1);
+        }
+        #galaxy-photo.active.interactive {
+            pointer-events: auto; /* 显示时允许滑动 */
         }
 
         /* ===== 影片模式样式 ===== */
@@ -226,16 +229,16 @@
     </div>
 
     <!-- 多首音樂元素 -->
-    <audio id="bgm-main" loop>
+    <audio id="bgm-main" loop preload="auto">
         <source src="./src/bgm_main.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-celebration" loop>
+    <audio id="bgm-celebration" loop preload="auto">
         <source src="./src/bgm_celebration.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-galaxy" loop>
+    <audio id="bgm-galaxy" loop preload="auto">
         <source src="./src/bgm_galaxy.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-video" loop>
+    <audio id="bgm-video" loop preload="auto">
         <source src="./src/bgm_video.mp3" type="audio/mpeg">
     </audio>
 
@@ -417,8 +420,9 @@
         let galaxyMode = false;
         let galaxyTargets = null;
 
-        // --- OK手势照片控制 ---
-        let photoActive = false;
+        // --- OK手势照片控制（修改为常显，支持滑动）---
+        let photoActive = false;          // 照片是否显示
+        let currentPhotoIndex = 0;        // 当前显示的图片索引（仅在银河模式有效）
         const photoElement = document.getElementById('galaxy-photo');
 
         // ===== 影片模式相关 =====
@@ -505,7 +509,7 @@
                 // 进入视频模式，关闭银河模式
                 galaxyMode = false;
                 galaxyTargets = null;
-                if (photoActive) photoActive = false;
+                hidePhoto(); // 隐藏照片
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
@@ -538,6 +542,63 @@
                 }
             }
         }
+
+        // 照片相关辅助函数
+        function showPhoto(index) {
+            if (!galaxyMode) return; // 只在银河模式显示
+            photoElement.src = photoList[index];
+            photoActive = true;
+            photoElement.classList.add('active');
+            photoElement.classList.add('interactive'); // 允许触摸事件
+        }
+
+        function hidePhoto() {
+            photoActive = false;
+            photoElement.classList.remove('active');
+            photoElement.classList.remove('interactive');
+        }
+
+        function nextPhoto() {
+            if (!galaxyMode || !photoActive) return;
+            currentPhotoIndex = (currentPhotoIndex + 1) % photoList.length;
+            photoElement.src = photoList[currentPhotoIndex];
+        }
+
+        function prevPhoto() {
+            if (!galaxyMode || !photoActive) return;
+            currentPhotoIndex = (currentPhotoIndex - 1 + photoList.length) % photoList.length;
+            photoElement.src = photoList[currentPhotoIndex];
+        }
+
+        // 为照片添加滑动切换事件
+        (function initPhotoSwipe() {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            const minSwipeDistance = 50; // 最小滑动距离
+
+            photoElement.addEventListener('touchstart', (e) => {
+                if (!galaxyMode || !photoActive) return;
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            photoElement.addEventListener('touchend', (e) => {
+                if (!galaxyMode || !photoActive) return;
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, { passive: true });
+
+            function handleSwipe() {
+                const delta = touchEndX - touchStartX;
+                if (Math.abs(delta) < minSwipeDistance) return;
+                if (delta > 0) {
+                    // 右滑 -> 上一张
+                    prevPhoto();
+                } else {
+                    // 左滑 -> 下一张
+                    nextPhoto();
+                }
+            }
+        })();
 
         // 打字机效果：每段文字依次打出，保留不消失，段落间自动换行，全部打完后停止
         function startTypewriter() {
@@ -847,10 +908,8 @@
                 galaxyTargets = generateGalaxyTargets();
             } else if (!galaxyMode) {
                 galaxyTargets = null;
-                if (photoActive) {
-                    photoActive = false;
-                    photoElement.classList.remove('active');
-                }
+                // 离开银河模式时隐藏照片
+                if (photoActive) hidePhoto();
             }
 
             for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
@@ -1113,12 +1172,13 @@
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
                         playMusic(bgmGalaxy);
+                        // 如果之前有照片索引，重新显示
+                        if (photoActive) {
+                            showPhoto(currentPhotoIndex);
+                        }
                     } else {
                         galaxyTargets = null;
-                        if (photoActive) {
-                            photoActive = false;
-                            photoElement.classList.remove('active');
-                        }
+                        hidePhoto(); // 离开银河模式隐藏照片
                         if (currentState !== STATE.CELEBRATION) {
                             playMusic(bgmMain);
                         }
@@ -1127,12 +1187,19 @@
             }
             if (e.key === 'o' || e.key === 'O') {
                 if (galaxyMode && !photoActive && !videoMode) {
-                    const randomIndex = Math.floor(Math.random() * photoList.length);
-                    photoElement.src = photoList[randomIndex];
-                    photoActive = true;
-                    photoElement.classList.add('active');
-                    log('OK手势模拟按下');
+                    // 随机选一张并显示
+                    currentPhotoIndex = Math.floor(Math.random() * photoList.length);
+                    showPhoto(currentPhotoIndex);
+                    log('OK手势模拟按下，照片显示');
+                } else if (galaxyMode && photoActive) {
+                    // 如果已经显示，可以再次随机？根据需求，暂时不做
                 }
+            }
+            if (e.key === 'ArrowLeft') {
+                if (galaxyMode && photoActive) prevPhoto();
+            }
+            if (e.key === 'ArrowRight') {
+                if (galaxyMode && photoActive) nextPhoto();
             }
             if (e.key === '2') {
                 if (currentState !== STATE.INTRO) {
@@ -1141,13 +1208,7 @@
             }
         });
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'o' || e.key === 'O') {
-                if (galaxyMode && photoActive) {
-                    photoActive = false;
-                    photoElement.classList.remove('active');
-                    log('OK手势模拟松开');
-                }
-            }
+            // 移除OK松开清除照片的逻辑
         });
 
         async function initAudio() {
@@ -1278,11 +1339,10 @@
                     
                     if (isOk) {
                         handGesture = 'ok';
+                        // 修改：OK手势在银河模式下召唤照片（如果尚未显示）
                         if (galaxyMode && !photoActive && !videoMode) {
-                            const randomIndex = Math.floor(Math.random() * photoList.length);
-                            photoElement.src = photoList[randomIndex];
-                            photoActive = true;
-                            photoElement.classList.add('active');
+                            currentPhotoIndex = Math.floor(Math.random() * photoList.length);
+                            showPhoto(currentPhotoIndex);
                         }
                         // 重置其他手势标志
                         lastOneGesture = false;
@@ -1300,10 +1360,7 @@
                         lastYaGesture = true;
                         lastOneGesture = false;
                     } else {
-                        if (handGesture === 'ok' && photoActive) {
-                            photoActive = false;
-                            photoElement.classList.remove('active');
-                        }
+                        // 不再在非OK手势时自动隐藏照片（保持显示）
                         if (isOne) {
                             handGesture = 'one';
                             // 边缘检测：只有刚出现时才触发
@@ -1317,9 +1374,13 @@
                                         if (videoMode) toggleVideoMode(false);
                                         galaxyTargets = generateGalaxyTargets();
                                         playMusic(bgmGalaxy);
+                                        // 如果之前有照片索引，重新显示（照片未隐藏）
+                                        if (photoActive) {
+                                            showPhoto(currentPhotoIndex);
+                                        }
                                     } else {
                                         galaxyTargets = null;
-                                        if (photoActive) photoActive = false;
+                                        hidePhoto(); // 离开银河模式隐藏照片
                                         if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
                                     }
                                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
@@ -1364,10 +1425,7 @@
                     }
                     lastOneGesture = false;
                     lastYaGesture = false;
-                    if (photoActive) {
-                        photoActive = false;
-                        photoElement.classList.remove('active');
-                    }
+                    // 没有手时不隐藏照片（照片保留）
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
