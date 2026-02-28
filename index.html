@@ -69,7 +69,7 @@
             box-shadow: 0 0 50px rgba(255, 105, 180, 0.2);
         }
 
-        /* 吹氣相關 UI 已移除，此處留空 */
+        /* 吹氣相關 UI 已移除 */
 
         #surprise-layer { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 80; pointer-events: none; transition: background 0.5s ease; }
         #surprise-layer.hidden { display: none !important; }
@@ -132,13 +132,12 @@
 
         /* 滾動文字區域樣式 */
         .scrollable-text {
-            max-height: 240px; /* 限制高度 */
-            overflow-y: auto;  /* 允許垂直滾動 */
-            padding-right: 10px; /* 給滾動條留點空 */
-            scrollbar-width: thin; /* Firefox */
-            scrollbar-color: rgba(255,105,180,0.5) transparent; /* Firefox */
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,105,180,0.5) transparent;
         }
-        /* Chrome/Safari 滾動條樣式 */
         .scrollable-text::-webkit-scrollbar {
             width: 4px;
         }
@@ -220,17 +219,17 @@
         <b>請在 VS Code 中安裝 "Live Server" 插件並使用 "Open with Live Server" 執行。</b>
     </div>
 
-    <!-- 多首音樂元素 -->
-    <audio id="bgm-main" loop>
+    <!-- 多首音樂元素，加上 preload="auto" 確保預加載 -->
+    <audio id="bgm-main" loop preload="auto">
         <source src="./src/bgm_main.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-celebration" loop>
+    <audio id="bgm-celebration" loop preload="auto">
         <source src="./src/bgm_celebration.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-galaxy" loop>
+    <audio id="bgm-galaxy" loop preload="auto">
         <source src="./src/bgm_galaxy.mp3" type="audio/mpeg">
     </audio>
-    <audio id="bgm-video" loop>
+    <audio id="bgm-video" loop preload="auto">
         <source src="./src/bgm_video.mp3" type="audio/mpeg">
     </audio>
 
@@ -254,7 +253,7 @@
             <h1 class="text-6xl mb-2 font-handwriting text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-purple-400 drop-shadow-lg">For the only one</h1>
             <div class="space-y-4 text-gray-200 text-lg mb-8 font-light">
                 <p>☝️ <b>點擊進入專屬通道</b> 將喚醒魔法</p>
-                        <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未檢測到攝影機，請使用滑鼠左鍵控制聚集/散開，鍵盤1/2/O模擬手勢</p>
+                <p id="mouse-hint" class="hidden text-sm text-pink-300">🖱️ 未檢測到攝影機，請使用滑鼠左鍵控制聚集/散開，鍵盤1/2/O模擬手勢</p>
             </div>
             <button id="start-btn" class="safe-click-area px-12 py-4 bg-gradient-to-r from-pink-600 to-purple-700 rounded-full font-bold text-xl hover:scale-105 active:scale-95 transition transform shadow-[0_0_20px_rgba(255,105,180,0.5)] text-white border border-white/20 cursor-pointer z-50">
                 進入專屬通道
@@ -263,8 +262,7 @@
         </div>
     </div>
 
-    <!-- 吹氣相關元素已移除 -->
-
+    <!-- 頂部橫幅 -->
     <div id="top-banner" class="hidden">
         <h1 class="text-6xl md:text-8xl banner-text">For the only one</h1>
         <p class="text-pink-200/70 text-lg mt-2 tracking-widest uppercase">Wishing you happiness every day</p>
@@ -282,6 +280,7 @@
             </div>
         </div>
         
+        <!-- 中心提示區塊 -->
         <div id="center-instruction" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-full z-0">
             <div class="flex items-center justify-center gap-4 mb-2">
                 <span id="hand-icon" class="text-6xl animate-bounce">👋</span>
@@ -311,7 +310,7 @@
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
-        <!-- 卡片（只保留第一頁，邊框線固定） -->
+        <!-- 卡片（只保留第一頁） -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -379,9 +378,8 @@
         ];
 
         // --- 全局變數 ---
-        const CAKE_THEME = { bottom: "#FFD700", top: "#FFA500", cream: "#FFFFFF" }; // 保留但不再使用
         const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4 };
-        const STATE = { INTRO: -1, IDLE: 0, COUNTDOWN: 1, CAKE: 2, BLOWING: 3, CELEBRATION: 4 };
+        const STATE = { INTRO: -1, IDLE: 0, CELEBRATION: 4 }; // 簡化狀態，移除吹氣相關
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -408,8 +406,8 @@
         let galaxyTargets = null;
 
         // --- OK手勢照片控制 ---
-        let photoGrabbed = false;          // 照片是否處於被抓取狀態（持續顯示）
-        let currentPhotoIndex = 0;          // 目前照片索引
+        let photoGrabbed = false;
+        let currentPhotoIndex = 0;
         const photoElement = document.getElementById('galaxy-photo');
 
         // ===== 影片模式相關 =====
@@ -438,6 +436,8 @@
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
+            // 先加載再播放，增加成功率
+            musicElement.load();
             musicElement.play().catch(e => log('音樂播放失敗: ' + e));
             currentMusic = musicElement;
         }
@@ -455,6 +455,9 @@
             currentState = STATE.CELEBRATION;
             ui.statusText.innerText = "WISH GRANTED";
             
+            // 隱藏中心提示
+            ui.centerInstruction.style.display = 'none';
+
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
@@ -481,9 +484,9 @@
             photoElement.classList.remove('active');
         }
 
-        // 輔助函數：顯示照片（指定索引，預設為目前索引）
+        // 輔助函數：顯示照片
         function showPhoto(index = currentPhotoIndex) {
-            if (!galaxyMode || videoMode) return; // 僅在銀河模式且非影片模式顯示
+            if (!galaxyMode || videoMode) return;
             currentPhotoIndex = (index + photoList.length) % photoList.length;
             photoElement.src = photoList[currentPhotoIndex];
             photoElement.classList.add('active');
@@ -491,7 +494,7 @@
 
         // 切換照片函數（direction: 1 下一張, -1 上一張）
         function switchPhoto(direction) {
-            if (!galaxyMode || videoMode || !photoGrabbed) return; // 僅在銀河模式、非影片模式、照片被抓取時切換
+            if (!galaxyMode || videoMode || !photoGrabbed) return;
             const newIndex = (currentPhotoIndex + direction + photoList.length) % photoList.length;
             if (newIndex === currentPhotoIndex) return;
             currentPhotoIndex = newIndex;
@@ -502,7 +505,7 @@
         // ===== 左右滑動手勢切換照片 =====
         let touchStartX = 0;
         let touchStartY = 0;
-        const SWIPE_THRESHOLD = 30; // 最小滑動距離
+        const SWIPE_THRESHOLD = 30;
 
         document.addEventListener('touchstart', (e) => {
             if (!galaxyMode || videoMode || !photoGrabbed) return;
@@ -518,32 +521,28 @@
             const target = e.target;
             const isUIElement = target.closest('button, .interactive-element, #floating-gift-btn, #close-card-btn, #reveal-btn, #music-btn, .safe-click-area');
             if (isUIElement) return;
-            if (touchStartX === 0) return; // 未記錄起點
+            if (touchStartX === 0) return;
 
             const touchEndX = e.changedTouches[0].clientX;
             const touchEndY = e.changedTouches[0].clientY;
             const deltaX = touchEndX - touchStartX;
             const deltaY = touchEndY - touchStartY;
 
-            // 檢查是否為水平滑動（水平位移大於垂直位移且超過閾值）
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
                 if (deltaX > 0) {
-                    // 右滑：上一張
-                    switchPhoto(-1);
+                    switchPhoto(-1); // 右滑上一張
                 } else {
-                    // 左滑：下一張
-                    switchPhoto(1);
+                    switchPhoto(1);  // 左滑下一張
                 }
             }
 
-            touchStartX = 0; // 重置
+            touchStartX = 0;
         }, { passive: true });
 
         function toggleVideoMode(enable) {
             if (enable === videoMode) return;
             videoMode = enable;
             if (videoMode) {
-                // 進入影片模式，關閉銀河模式，隱藏照片
                 galaxyMode = false;
                 galaxyTargets = null;
                 hidePhoto();
@@ -629,6 +628,7 @@
             mainText: document.getElementById('instruction-text'),
             subText: document.getElementById('sub-instruction'),
             handIcon: document.getElementById('hand-icon'),
+            centerInstruction: document.getElementById('center-instruction'),
             surpriseLayer: document.getElementById('surprise-layer'),
             revealBtn: document.getElementById('reveal-btn'),
             floatingGiftBtn: document.getElementById('floating-gift-btn'),
@@ -740,8 +740,7 @@
             return new THREE.CanvasTexture(c);
         }
 
-        // ==================== 愛心生成 ====================
-        function getShapePoints(type, text) {
+        function getShapePoints(type) {
             const points = [];
             if (type === 'cake') {
                 const totalCount = IS_MOBILE ? 2000 : 3500;
@@ -962,9 +961,10 @@
         function startSequence() {
             if (currentState !== STATE.IDLE || transitionLock) return;
             transitionLock = true;
-            // 隱藏手圖標
+            // 隱藏手圖標和整個中心提示區域
             ui.handIcon.style.display = 'none';
-            // 直接進入慶祝畫面（移除吹氣）
+            ui.centerInstruction.style.display = 'none';
+            // 直接進入慶祝畫面
             successCelebration();
             transitionLock = false;
         }
@@ -1021,16 +1021,24 @@
             ui.surpriseLayer.classList.add('hidden');    
             ui.floatingGiftBtn.classList.remove('hidden');
             
+            // 恢復到 IDLE 狀態
+            currentState = STATE.IDLE;
             interactionMode = 1; 
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
-            if (!galaxyMode && currentState !== STATE.CELEBRATION) {
+            
+            // 顯示中心提示
+            ui.centerInstruction.style.display = 'flex';
+            ui.handIcon.style.display = 'inline-block';
+            ui.mainText.innerText = '舉起手';
+            ui.subText.innerText = '讓魔法發生';
+            
+            // 播放適當音樂
+            if (!galaxyMode) {
                 playMusic(bgmMain);
-            } else if (galaxyMode) {
+            } else {
                 playMusic(bgmGalaxy);
-            } else if (currentState === STATE.CELEBRATION) {
-                playMusic(bgmCelebration);
             }
         });
 
@@ -1046,8 +1054,7 @@
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
             
-            // 移除音訊初始化（不再需要麥克風）
-            // 直接嘗試啟動攝影機
+            // 嘗試啟動攝影機
             try {
                 log('嘗試啟動攝影機...');
                 await initCamera();
@@ -1068,6 +1075,9 @@
             currentState = STATE.IDLE;
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
+            
+            // 播放主音樂
+            playMusic(bgmMain);
         });
 
         function enableMouseControl() {
@@ -1130,16 +1140,12 @@
                     toggleVideoMode(!videoMode);
                 }
             }
-            // 鍵盤左右鍵切換照片（方便測試）
             if (e.key === 'ArrowLeft' && photoGrabbed) {
                 switchPhoto(-1);
             } else if (e.key === 'ArrowRight' && photoGrabbed) {
                 switchPhoto(1);
             }
         });
-
-        // 移除所有吹氣相關的監聽（空白鍵、觸摸模擬等）
-        // 不再需要 isSpacePressed 和 isTouching
 
         // 攝影機初始化
         async function initCamera() {
@@ -1205,7 +1211,7 @@
                     const isThumbBent = fingerRatios[0] < 1.5;
                     const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
                     
-                    // ===== OK 手勢：在銀河模式下抓取照片（持續顯示）=====
+                    // ===== OK 手勢：在銀河模式下抓取照片 =====
                     if (isOk) {
                         handGesture = 'ok';
                         if (galaxyMode && !videoMode) {
