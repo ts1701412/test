@@ -247,10 +247,9 @@
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
-    <!-- ===== 影片模式容器（无控制条，自动播放） ===== -->
+    <!-- ===== 影片模式容器（静音以确保自动播放） ===== -->
     <div id="video-mode-container">
-        <!-- 移除 autoplay，添加 preload="none" 避免预加载声音 -->
-        <video id="video-player" src="./src/video.mp4" playsinline loop preload="none"></video>
+        <video id="video-player" src="./src/video.mp4" playsinline loop muted preload="auto"></video>
         <div id="video-text"></div>
     </div>
 
@@ -417,9 +416,15 @@
         let galaxyMode = false;
         let galaxyTargets = null;
 
-        // --- OK手势照片控制 ---
-        let photoActive = false;
+        // --- OK手势照片控制（修改：改用 photoGrabbed 表示照片是否被持续抓取）---
+        let photoGrabbed = false;          // 照片是否处于被抓取状态（持续显示）
+        let currentPhotoIndex = 0;          // 当前照片索引
         const photoElement = document.getElementById('galaxy-photo');
+
+        // --- 照片左右切换相关 ---
+        let lastHandXForPhoto = 0;          // 用于切换照片的上一次手部X坐标
+        let photoSwitchCooldown = false;    // 防止连续切换的冷却标志
+        const PHOTO_SWITCH_THRESHOLD = 0.02; // 手移动阈值（归一化坐标）
 
         // ===== 影片模式相关 =====
         let videoMode = false;
@@ -485,18 +490,43 @@
             }, 1500);
         }
 
+        // 辅助函数：隐藏照片
+        function hidePhoto() {
+            photoGrabbed = false;
+            photoElement.classList.remove('active');
+        }
+
+        // 辅助函数：显示照片（指定索引，默认为当前索引）
+        function showPhoto(index = currentPhotoIndex) {
+            if (!galaxyMode || videoMode) return; // 仅在银河模式且非视频模式显示
+            currentPhotoIndex = (index + photoList.length) % photoList.length;
+            photoElement.src = photoList[currentPhotoIndex];
+            photoElement.classList.add('active');
+        }
+
+        // 切换照片函数
+        function switchPhoto(direction) {
+            if (!galaxyMode || videoMode || !photoGrabbed) return; // 仅在银河模式、非视频模式、照片被抓取时切换
+            const newIndex = (currentPhotoIndex + direction + photoList.length) % photoList.length;
+            if (newIndex === currentPhotoIndex) return;
+            currentPhotoIndex = newIndex;
+            photoElement.src = photoList[currentPhotoIndex];
+            log(`切换到照片: ${currentPhotoIndex + 1}`);
+        }
+
         function toggleVideoMode(enable) {
             if (enable === videoMode) return;
             videoMode = enable;
             if (videoMode) {
-                // 进入视频模式，关闭银河模式
+                // 进入视频模式，关闭银河模式，隐藏照片
                 galaxyMode = false;
                 galaxyTargets = null;
-                if (photoActive) photoActive = false;
+                hidePhoto(); // 隐藏照片
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
-                // 视频开始播放（已移除autoplay，此处手动播放）
+                // 视频开始播放（静音确保自动播放）
+                videoPlayer.muted = true;
                 videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
                 startTypewriter();
                 stopAllMusic();
@@ -834,10 +864,8 @@
                 galaxyTargets = generateGalaxyTargets();
             } else if (!galaxyMode) {
                 galaxyTargets = null;
-                if (photoActive) {
-                    photoActive = false;
-                    photoElement.classList.remove('active');
-                }
+                // 离开银河模式时隐藏照片
+                hidePhoto();
             }
 
             for (let i = 0; i < VISUAL_CONFIG.particleCount; i++) {
@@ -1096,12 +1124,10 @@
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
                         playMusic(bgmGalaxy);
+                        // 如果之前照片被抓取过，但可能未显示？这里不需要自动显示
                     } else {
                         galaxyTargets = null;
-                        if (photoActive) {
-                            photoActive = false;
-                            photoElement.classList.remove('active');
-                        }
+                        hidePhoto(); // 退出银河模式时隐藏照片
                         if (currentState !== STATE.CELEBRATION) {
                             playMusic(bgmMain);
                         }
@@ -1109,12 +1135,14 @@
                 }
             }
             if (e.key === 'o' || e.key === 'O') {
-                if (galaxyMode && !photoActive && !videoMode) {
-                    const randomIndex = Math.floor(Math.random() * photoList.length);
-                    photoElement.src = photoList[randomIndex];
-                    photoActive = true;
-                    photoElement.classList.add('active');
-                    log('OK手势模拟按下');
+                if (galaxyMode && !videoMode) {
+                    if (!photoGrabbed) {
+                        // 模拟OK手势抓取
+                        photoGrabbed = true;
+                        currentPhotoIndex = Math.floor(Math.random() * photoList.length);
+                        showPhoto(currentPhotoIndex);
+                        log('OK手势模拟抓取照片');
+                    }
                 }
             }
             if (e.key === '2') {
@@ -1123,13 +1151,12 @@
                 }
             }
         });
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'o' || e.key === 'O') {
-                if (galaxyMode && photoActive) {
-                    photoActive = false;
-                    photoElement.classList.remove('active');
-                    log('OK手势模拟松开');
-                }
+        // 键盘左右键模拟照片切换（方便测试）
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && photoGrabbed) {
+                switchPhoto(-1);
+            } else if (e.key === 'ArrowRight' && photoGrabbed) {
+                switchPhoto(1);
             }
         });
 
@@ -1259,44 +1286,44 @@
                     const isThumbBent = fingerRatios[0] < 1.5;
                     const isYa = isIndexStraight && isMiddleStraight && isRingBent && isPinkyBent && isThumbBent;
                     
+                    // ===== OK 手势：在银河模式下抓取照片（持续显示）=====
                     if (isOk) {
                         handGesture = 'ok';
-                        if (galaxyMode && !photoActive && !videoMode) {
-                            const randomIndex = Math.floor(Math.random() * photoList.length);
-                            photoElement.src = photoList[randomIndex];
-                            photoActive = true;
-                            photoElement.classList.add('active');
+                        if (galaxyMode && !videoMode) {
+                            if (!photoGrabbed) {
+                                // 第一次抓取，随机显示一张照片并标记为已抓取
+                                photoGrabbed = true;
+                                currentPhotoIndex = Math.floor(Math.random() * photoList.length);
+                                showPhoto(currentPhotoIndex);
+                                log('OK手势抓取照片');
+                            }
+                            // 如果照片已抓取，再次做OK手势不做任何事（可自行扩展其他功能）
                         }
-                        // 重置其他手势标志
                         lastOneGesture = false;
                         lastYaGesture = false;
-                    } else if (isYa) {
+                    } 
+                    // ===== Ya 手势：切换视频模式 =====
+                    else if (isYa) {
                         handGesture = 'ya';
-                        // 边缘检测：只有刚出现时才触发
                         if (!lastYaGesture) {
                             toggleVideoMode(!videoMode);
                         }
                         lastYaGesture = true;
                         lastOneGesture = false;
                     } else {
-                        if (handGesture === 'ok' && photoActive) {
-                            photoActive = false;
-                            photoElement.classList.remove('active');
-                        }
+                        // 非OK手势时，不改变 photoGrabbed 状态（照片继续显示）
+                        // 但需要处理其他手势
                         if (isOne) {
                             handGesture = 'one';
-                            // 边缘检测：只有刚出现时才触发
                             if (!lastOneGesture) {
-                                // 切换银河模式，并确保视频模式关闭
                                 galaxyMode = !galaxyMode;
                                 if (galaxyMode) {
-                                    // 如果要开启银河模式，先关闭视频模式
                                     if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
                                     playMusic(bgmGalaxy);
                                 } else {
                                     galaxyTargets = null;
-                                    if (photoActive) photoActive = false;
+                                    hidePhoto(); // 退出银河模式时隐藏照片
                                     if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
                                 }
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
@@ -1305,7 +1332,6 @@
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
-                            // 握拳开始生日流程
                             if (currentState === STATE.IDLE) {
                                 startSequence();
                             }
@@ -1320,6 +1346,36 @@
                             lastOneGesture = false;
                             lastYaGesture = false;
                         }
+                    }
+                    
+                    // ===== 照片左右切换逻辑（仅在银河模式、照片被抓取、非视频模式下生效）=====
+                    if (galaxyMode && !videoMode && photoGrabbed) {
+                        const wristX = landmarks[0].x; // 使用手腕的x坐标
+                        if (lastHandXForPhoto === 0) {
+                            lastHandXForPhoto = wristX;
+                        } else {
+                            const delta = wristX - lastHandXForPhoto;
+                            if (!photoSwitchCooldown) {
+                                if (delta > PHOTO_SWITCH_THRESHOLD) {
+                                    // 向右移动超过阈值 -> 下一张
+                                    switchPhoto(1);
+                                    photoSwitchCooldown = true;
+                                    lastHandXForPhoto = wristX; // 重置基准点
+                                    setTimeout(() => { photoSwitchCooldown = false; }, 300); // 冷却300ms
+                                } else if (delta < -PHOTO_SWITCH_THRESHOLD) {
+                                    // 向左移动超过阈值 -> 上一张
+                                    switchPhoto(-1);
+                                    photoSwitchCooldown = true;
+                                    lastHandXForPhoto = wristX;
+                                    setTimeout(() => { photoSwitchCooldown = false; }, 300);
+                                }
+                            }
+                            // 如果移动回阈值内，但冷却中，不重置 lastHandXForPhoto，避免误触发
+                            // 当手停止移动且冷却结束后，下一次移动才会再次触发
+                        }
+                    } else {
+                        // 不满足条件时重置基准点，避免误判
+                        lastHandXForPhoto = 0;
                     }
                     
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]";
@@ -1340,13 +1396,12 @@
                     }
                     lastOneGesture = false;
                     lastYaGesture = false;
-                    if (photoActive) {
-                        photoActive = false;
-                        photoElement.classList.remove('active');
-                    }
+                    // 注意：照片不会因为手消失而隐藏，保持抓取状态（直到切换场景）
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
+                    // 重置照片切换基准点
+                    lastHandXForPhoto = 0;
                 }
 
                 const ctx = document.getElementById('output_canvas').getContext('2d');
