@@ -421,11 +421,6 @@
         let currentPhotoIndex = 0;          // 当前照片索引
         const photoElement = document.getElementById('galaxy-photo');
 
-        // --- 照片左右切换相关 ---
-        let lastHandXForPhoto = 0;          // 用于切换照片的上一次手部X坐标
-        let photoSwitchCooldown = false;    // 防止连续切换的冷却标志
-        const PHOTO_SWITCH_THRESHOLD = 0.02; // 手移动阈值（归一化坐标）
-
         // ===== 影片模式相关 =====
         let videoMode = false;
         let typewriterInterval = null;
@@ -504,7 +499,7 @@
             photoElement.classList.add('active');
         }
 
-        // 切换照片函数
+        // 切换照片函数（direction: 1 下一张, -1 上一张）
         function switchPhoto(direction) {
             if (!galaxyMode || videoMode || !photoGrabbed) return; // 仅在银河模式、非视频模式、照片被抓取时切换
             const newIndex = (currentPhotoIndex + direction + photoList.length) % photoList.length;
@@ -513,6 +508,29 @@
             photoElement.src = photoList[currentPhotoIndex];
             log(`切换到照片: ${currentPhotoIndex + 1}`);
         }
+
+        // ===== 新增：點擊屏幕切換下一張照片 =====
+        document.addEventListener('click', (e) => {
+            // 檢查是否滿足切換條件：銀河模式、照片被抓取、非影片模式
+            if (!galaxyMode || videoMode || !photoGrabbed) return;
+            
+            // 避免點擊到按鈕等互動元素時觸發切換
+            const target = e.target;
+            const isUIElement = target.closest('button, .interactive-element, #floating-gift-btn, #close-card-btn, #reveal-btn, #music-btn, .safe-click-area');
+            if (isUIElement) return;
+            
+            // 切換到下一張
+            switchPhoto(1);
+        });
+
+        // 為了手機觸控也能響應，可同時監聽 touchend（但注意避免重複觸發）
+        document.addEventListener('touchend', (e) => {
+            if (!galaxyMode || videoMode || !photoGrabbed) return;
+            const target = e.target;
+            const isUIElement = target.closest('button, .interactive-element, #floating-gift-btn, #close-card-btn, #reveal-btn, #music-btn, .safe-click-area');
+            if (isUIElement) return;
+            switchPhoto(1);
+        });
 
         function toggleVideoMode(enable) {
             if (enable === videoMode) return;
@@ -1151,7 +1169,7 @@
                 }
             }
         });
-        // 键盘左右键模拟照片切换（方便测试）
+        // 键盘左右键模拟照片切换（方便测试，可保留）
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' && photoGrabbed) {
                 switchPhoto(-1);
@@ -1348,35 +1366,7 @@
                         }
                     }
                     
-                    // ===== 照片左右切换逻辑（仅在银河模式、照片被抓取、非视频模式下生效）=====
-                    if (galaxyMode && !videoMode && photoGrabbed) {
-                        const wristX = landmarks[0].x; // 使用手腕的x坐标
-                        if (lastHandXForPhoto === 0) {
-                            lastHandXForPhoto = wristX;
-                        } else {
-                            const delta = wristX - lastHandXForPhoto;
-                            if (!photoSwitchCooldown) {
-                                if (delta > PHOTO_SWITCH_THRESHOLD) {
-                                    // 向右移动超过阈值 -> 下一张
-                                    switchPhoto(1);
-                                    photoSwitchCooldown = true;
-                                    lastHandXForPhoto = wristX; // 重置基准点
-                                    setTimeout(() => { photoSwitchCooldown = false; }, 300); // 冷却300ms
-                                } else if (delta < -PHOTO_SWITCH_THRESHOLD) {
-                                    // 向左移动超过阈值 -> 上一张
-                                    switchPhoto(-1);
-                                    photoSwitchCooldown = true;
-                                    lastHandXForPhoto = wristX;
-                                    setTimeout(() => { photoSwitchCooldown = false; }, 300);
-                                }
-                            }
-                            // 如果移动回阈值内，但冷却中，不重置 lastHandXForPhoto，避免误触发
-                            // 当手停止移动且冷却结束后，下一次移动才会再次触发
-                        }
-                    } else {
-                        // 不满足条件时重置基准点，避免误判
-                        lastHandXForPhoto = 0;
-                    }
+                    // 移除原有的手部移動切換照片邏輯，改用點擊屏幕切換
                     
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]";
                     ui.camStatusText.innerText = handGesture.toUpperCase();
@@ -1400,8 +1390,6 @@
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
-                    // 重置照片切换基准点
-                    lastHandXForPhoto = 0;
                 }
 
                 const ctx = document.getElementById('output_canvas').getContext('2d');
