@@ -167,7 +167,7 @@
         </div>
     </div>
 
-    <!-- 驚喜層（卡片）仍保留，但僅可透過禮物按鈕開啟 -->
+    <!-- 驚喜層（卡片） -->
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
@@ -239,7 +239,7 @@
 
         // --- 全局變數 ---
         const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4 };
-        const STATE = { INTRO: -1, IDLE: 0, CELEBRATION: 2 }; // 移除了 CARD 狀態
+        const STATE = { INTRO: -1, IDLE: 0, CELEBRATION: 2 };
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -260,6 +260,11 @@
         let lastOneGesture = false;
         let lastOkGesture = false;
         let lastYaGesture = false;
+
+        // --- 手勢冷卻時間 (毫秒) ---
+        const GESTURE_COOLDOWN = 3000; // 3秒
+        let lastOneSwitchTime = 0;
+        let lastYaSwitchTime = 0;
 
         // --- 銀河模式 ---
         let galaxyMode = false;
@@ -363,7 +368,7 @@
             if (ui.centerInstruction) ui.centerInstruction.style.display = 'none';
             if (ui.handIcon) ui.handIcon.style.display = 'none';
 
-            // 確保卡片層隱藏（防止之前可能開啟的卡片）
+            // 確保卡片層隱藏
             ui.surpriseLayer.classList.remove('active');
             ui.surpriseLayer.classList.add('hidden');
             ui.cardContainer.classList.add('hidden');
@@ -807,7 +812,7 @@
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
-                else if (currentState === STATE.IDLE) { // 只有 IDLE 時粒子環繞（進入前）
+                else if (currentState === STATE.IDLE) {
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
@@ -1109,39 +1114,51 @@
                         lastOneGesture = false;
                         lastYaGesture = false;
                     } 
-                    // ===== Ya 手勢：切換影片模式 =====
+                    // ===== Ya 手勢：切換影片模式（加入3秒冷卻）=====
                     else if (isYa) {
                         handGesture = 'ya';
                         if (!lastYaGesture) {
-                            toggleVideoMode(!videoMode);
+                            const now = Date.now();
+                            if (now - lastYaSwitchTime >= GESTURE_COOLDOWN) {
+                                toggleVideoMode(!videoMode);
+                                lastYaSwitchTime = now;
+                            } else {
+                                log(`Ya 手勢冷卻中，剩餘 ${Math.ceil((GESTURE_COOLDOWN - (now - lastYaSwitchTime))/1000)} 秒`);
+                            }
+                            lastYaGesture = true;
                         }
-                        lastYaGesture = true;
                         lastOneGesture = false;
                     } else {
                         if (isOne) {
                             handGesture = 'one';
+                            // ===== One 手勢：切換銀河模式（加入3秒冷卻）=====
                             if (!lastOneGesture) {
-                                galaxyMode = !galaxyMode;
-                                if (galaxyMode) {
-                                    if (videoMode) toggleVideoMode(false);
-                                    galaxyTargets = generateGalaxyTargets();
-                                    playMusic(bgmGalaxy, 'Galaxy');
-                                } else {
-                                    galaxyTargets = null;
-                                    hidePhoto();
-                                    if (currentState === STATE.CELEBRATION) {
-                                        playMusic(bgmCelebration, 'Celebration');
+                                const now = Date.now();
+                                if (now - lastOneSwitchTime >= GESTURE_COOLDOWN) {
+                                    galaxyMode = !galaxyMode;
+                                    if (galaxyMode) {
+                                        if (videoMode) toggleVideoMode(false);
+                                        galaxyTargets = generateGalaxyTargets();
+                                        playMusic(bgmGalaxy, 'Galaxy');
                                     } else {
-                                        playMusic(bgmMain, 'Main');
+                                        galaxyTargets = null;
+                                        hidePhoto();
+                                        if (currentState === STATE.CELEBRATION) {
+                                            playMusic(bgmCelebration, 'Celebration');
+                                        } else {
+                                            playMusic(bgmMain, 'Main');
+                                        }
                                     }
+                                    ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
+                                    lastOneSwitchTime = now;
+                                } else {
+                                    log(`One 手勢冷卻中，剩餘 ${Math.ceil((GESTURE_COOLDOWN - (now - lastOneSwitchTime))/1000)} 秒`);
                                 }
-                                ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
+                                lastOneGesture = true;
                             }
-                            lastOneGesture = true;
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
-                            // ===== 修改點：握拳時直接進入慶祝主場景 =====
                             if (currentState === STATE.IDLE) {
                                 successCelebration();
                             }
