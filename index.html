@@ -460,7 +460,7 @@
             });
         }
 
-        // 增强版音乐播放：如果失败则重试一次
+        // 增强版音乐播放：如果失败则重试一次，并确保主场景音乐在卡片打开时强制播放
         function playMusic(musicElement, retry = true) {
             if (!musicElement) return;
             
@@ -1092,7 +1092,8 @@
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 点击打开卡片时，切换为主场景音乐（温馨）
+            // 强制切换为主场景音乐（bgm-main）
+            log('打开卡片，切换到主场景音乐');
             playMusic(bgmMain);
         });
 
@@ -1105,6 +1106,7 @@
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
             // 浮动按钮打开卡片也切换到主场景音乐
+            log('打开卡片（浮动按钮），切换到主场景音乐');
             playMusic(bgmMain);
         });
 
