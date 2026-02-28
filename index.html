@@ -291,17 +291,43 @@
             if (audio) audio.volume = 1.0;
         });
 
-        function playMusic(musicElement) {
+        // 增強版播放函數：避免重複加載同一音樂，並顯示狀態
+        function playMusic(musicElement, musicName = '') {
             if (!musicElement) return;
-            if (currentMusic && currentMusic !== musicElement) {
+            
+            // 如果新音樂與當前音樂相同且正在播放（非暫停），則不重複加載
+            if (currentMusic === musicElement) {
+                if (!musicElement.paused) {
+                    log(`音樂 ${musicName} 已在播放`);
+                    return;
+                } else {
+                    // 如果暫停了，則恢復播放
+                    musicElement.play().catch(e => {
+                        log(`音樂 ${musicName} 恢復失敗: ${e}`);
+                        ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
+                    });
+                    return;
+                }
+            }
+
+            // 暫停當前音樂（如果有的話）
+            if (currentMusic) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
-            musicElement.load();
-            musicElement.play().catch(e => {
-                log('音樂播放失敗: ' + e);
-                // 嘗試再次播放（某些瀏覽器需要使用者互動）
-                setTimeout(() => musicElement.play().catch(() => {}), 100);
+
+            // 播放新音樂
+            musicElement.load(); // 重新加載以確保從頭開始
+            musicElement.play().then(() => {
+                log(`音樂 ${musicName} 播放成功`);
+                ui.statusText.innerText = `NOW PLAYING: ${musicName}`;
+            }).catch(e => {
+                log(`音樂 ${musicName} 播放失敗: ${e}`);
+                ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
+                // 嘗試一次重試（延遲100ms）
+                setTimeout(() => {
+                    musicElement.play().catch(() => {});
+                }, 100);
             });
             currentMusic = musicElement;
         }
@@ -318,7 +344,6 @@
         function successCelebration() {
             log('進入慶祝主場景');
             currentState = STATE.CELEBRATION;
-            ui.statusText.innerText = "WISH GRANTED";
             
             // 隱藏中心提示
             if (ui.centerInstruction) ui.centerInstruction.style.display = 'none';
@@ -330,18 +355,17 @@
             ui.cardContainer.classList.add('hidden');
             ui.revealBtn.classList.add('hidden');
 
-            // 粒子慶祝效果（愛心粒子跳動，背景粒子環繞）
+            // 粒子慶祝效果
             document.body.classList.add('shake-screen');
             setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
-            // 為愛心粒子添加微幅跳動
             particlesData.forEach(p => {
                 if (p.type === 'heart') {
                     p.target.y += Math.sin(p.current.x * 0.5) * 0.5; 
                 }
             });
 
-            playMusic(bgmCelebration);
+            playMusic(bgmCelebration, 'Celebration');
         }
 
         // ===== 顯示卡片（握拳觸發） =====
@@ -436,7 +460,7 @@
                 videoPlayer.play().catch(e => log('影片自動播放失敗: ' + e));
                 startTypewriter();
                 stopAllMusic();
-                playMusic(bgmVideo); // 播放影片音樂
+                playMusic(bgmVideo, 'Video');
             } else {
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
@@ -450,12 +474,13 @@
                     typewriterTimeout = null;
                 }
                 videoText.textContent = '';
+                // 根據當前狀態恢復音樂
                 if (galaxyMode) {
-                    playMusic(bgmGalaxy);
+                    playMusic(bgmGalaxy, 'Galaxy');
                 } else if (currentState === STATE.CELEBRATION) {
-                    playMusic(bgmCelebration);
+                    playMusic(bgmCelebration, 'Celebration');
                 } else {
-                    playMusic(bgmMain);
+                    playMusic(bgmMain, 'Main');
                 }
             }
         }
@@ -774,7 +799,6 @@
                     p.targetColor.setHSL(hue, 0.7, 0.6);
                 }
                 else if (currentState === STATE.CELEBRATION && p.type === 'bg') {
-                    // 背景粒子環繞慶祝動畫
                     const angle = p.angle + time * 0.1 + p.orbitSpeed;
                     const r = p.radius + Math.sin(time + i) * 5;
                     target.x = Math.cos(angle) * r;
@@ -783,7 +807,6 @@
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
                 else if (currentState === STATE.IDLE || currentState === STATE.CARD) {
-                    // IDLE 或卡片顯示時，粒子環繞
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
@@ -795,12 +818,11 @@
                     }
                 }
 
-                // 銀河模式覆蓋所有目標
                 if (galaxyMode && galaxyTargets) {
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // ===== 手勢控制粒子聚集/散開（IDLE 和 CELEBRATION 都啟用）=====
+                    // 手勢控制粒子聚集/散開（IDLE 和 CELEBRATION 都啟用）
                     if (p.type === 'bg' && heartCount > 0 && 
                         (currentState === STATE.IDLE || currentState === STATE.CELEBRATION)) {
                         if (handGesture === 'fist') {
@@ -903,7 +925,6 @@
             
             // 設定互動模式為可旋轉
             interactionMode = 1; 
-            ui.statusText.innerText = "CELEBRATION MODE";
             ui.topBanner.classList.remove('hidden');
         });
 
@@ -941,11 +962,11 @@
             ui.startOverlay.classList.add('hidden');
             ui.uiLayer.style.display = 'flex';
             
-            // ===== 關鍵修正：立即轉換為愛心粒子 =====
+            // 轉換為愛心粒子
             transitionTo('cake');
             
             // 播放主音樂
-            playMusic(bgmMain);
+            playMusic(bgmMain, 'Main');
         });
 
         function enableMouseControl() {
@@ -983,14 +1004,14 @@
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
-                        playMusic(bgmGalaxy);
+                        playMusic(bgmGalaxy, 'Galaxy');
                     } else {
                         galaxyTargets = null;
                         hidePhoto();
                         if (currentState === STATE.CELEBRATION) {
-                            playMusic(bgmCelebration);
+                            playMusic(bgmCelebration, 'Celebration');
                         } else {
-                            playMusic(bgmMain);
+                            playMusic(bgmMain, 'Main');
                         }
                     }
                 }
@@ -1111,14 +1132,14 @@
                                 if (galaxyMode) {
                                     if (videoMode) toggleVideoMode(false);
                                     galaxyTargets = generateGalaxyTargets();
-                                    playMusic(bgmGalaxy);
+                                    playMusic(bgmGalaxy, 'Galaxy');
                                 } else {
                                     galaxyTargets = null;
                                     hidePhoto();
                                     if (currentState === STATE.CELEBRATION) {
-                                        playMusic(bgmCelebration);
+                                        playMusic(bgmCelebration, 'Celebration');
                                     } else {
-                                        playMusic(bgmMain);
+                                        playMusic(bgmMain, 'Main');
                                     }
                                 }
                                 ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
@@ -1127,7 +1148,6 @@
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
-                            // 握拳時如果處於 IDLE 狀態則顯示卡片
                             if (currentState === STATE.IDLE) {
                                 showCard();
                             }
