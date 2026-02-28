@@ -436,12 +436,25 @@
         const bgmVideo = document.getElementById('bgm-video');
         let currentMusic = null;
 
+        // ===== 手势场景切换冷却时间 =====
+        let lastOneSwitchTime = 0;      // 手势“one”上次切换时间
+        let lastYaSwitchTime = 0;       // 手势“ya”上次切换时间
+
         function playMusic(musicElement) {
             if (!musicElement) return;
+            // 如果已经是当前音乐，确保音量并尝试播放（如果暂停）
+            if (currentMusic === musicElement) {
+                musicElement.volume = 1.0;
+                if (musicElement.paused) {
+                    musicElement.play().catch(e => log('音樂播放失敗: ' + e));
+                }
+                return;
+            }
             if (currentMusic && currentMusic !== musicElement) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
+            musicElement.volume = 1.0; // 调大音量
             musicElement.play().catch(e => log('音樂播放失敗: ' + e));
             currentMusic = musicElement;
         }
@@ -476,7 +489,7 @@
                 }
             });
 
-            playMusic(bgmCelebration);
+            playMusic(bgmCelebration); // 庆祝动画播放庆祝音乐
 
             setTimeout(() => {
                 ui.surpriseLayer.classList.remove('hidden');
@@ -985,6 +998,8 @@
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
+            // 点击打开卡片时，切换为主场景音乐（温馨）
+            playMusic(bgmMain);
         });
 
         ui.floatingGiftBtn.addEventListener('click', (e) => {
@@ -995,6 +1010,8 @@
             interactionMode = 0;
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
+            // 浮动按钮打开卡片也切换到主场景音乐
+            playMusic(bgmMain);
         });
 
         ui.closeBtn.addEventListener('click', (e) => {
@@ -1008,12 +1025,12 @@
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
-            if (!galaxyMode && currentState !== STATE.CELEBRATION) {
-                playMusic(bgmMain);
-            } else if (galaxyMode) {
+            // 关闭卡片后根据银河模式和庆祝状态决定音乐
+            if (galaxyMode) {
                 playMusic(bgmGalaxy);
-            } else if (currentState === STATE.CELEBRATION) {
-                playMusic(bgmCelebration);
+            } else {
+                // 无论是否庆祝，只要不是银河模式，都播放主场景音乐
+                playMusic(bgmMain);
             }
         });
 
@@ -1274,7 +1291,11 @@
                         handGesture = 'ya';
                         // 边缘检测：只有刚出现时才触发
                         if (!lastYaGesture) {
-                            toggleVideoMode(!videoMode);
+                            const now = Date.now();
+                            if (now - lastYaSwitchTime > 3000) { // 冷却3秒
+                                lastYaSwitchTime = now;
+                                toggleVideoMode(!videoMode);
+                            }
                         }
                         lastYaGesture = true;
                         lastOneGesture = false;
@@ -1287,19 +1308,22 @@
                             handGesture = 'one';
                             // 边缘检测：只有刚出现时才触发
                             if (!lastOneGesture) {
-                                // 切换银河模式，并确保视频模式关闭
-                                galaxyMode = !galaxyMode;
-                                if (galaxyMode) {
-                                    // 如果要开启银河模式，先关闭视频模式
-                                    if (videoMode) toggleVideoMode(false);
-                                    galaxyTargets = generateGalaxyTargets();
-                                    playMusic(bgmGalaxy);
-                                } else {
-                                    galaxyTargets = null;
-                                    if (photoActive) photoActive = false;
-                                    if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
+                                const now = Date.now();
+                                if (now - lastOneSwitchTime > 3000) { // 冷却3秒
+                                    lastOneSwitchTime = now;
+                                    // 切换银河模式，并确保视频模式关闭
+                                    galaxyMode = !galaxyMode;
+                                    if (galaxyMode) {
+                                        if (videoMode) toggleVideoMode(false);
+                                        galaxyTargets = generateGalaxyTargets();
+                                        playMusic(bgmGalaxy);
+                                    } else {
+                                        galaxyTargets = null;
+                                        if (photoActive) photoActive = false;
+                                        if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
+                                    }
+                                    ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 }
-                                ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                             }
                             lastOneGesture = true;
                             lastYaGesture = false;
