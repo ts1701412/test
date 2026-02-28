@@ -444,22 +444,57 @@
         let lastOneSwitchTime = 0;      // 手势“one”上次切换时间
         let lastYaSwitchTime = 0;       // 手势“ya”上次切换时间
 
-        function playMusic(musicElement) {
+        // ===== 预加载所有音乐，在用户手势后激活音频上下文 =====
+        function preloadAllMusic() {
+            const audios = [bgmMain, bgmCelebration, bgmGalaxy, bgmVideo];
+            audios.forEach(audio => {
+                if (audio) {
+                    audio.load(); // 确保加载
+                    // 尝试播放并立即暂停，以激活音频（需要用户手势）
+                    audio.play().then(() => {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        log(`预加载成功: ${audio.id}`);
+                    }).catch(e => log(`预加载失败 ${audio.id}: ${e}`));
+                }
+            });
+        }
+
+        // 增强版音乐播放：如果失败则重试一次
+        function playMusic(musicElement, retry = true) {
             if (!musicElement) return;
+            
             // 如果已经是当前音乐，确保音量并尝试播放（如果暂停）
             if (currentMusic === musicElement) {
                 musicElement.volume = 1.0;
                 if (musicElement.paused) {
-                    musicElement.play().catch(e => log('音樂播放失敗: ' + e));
+                    musicElement.play().catch(e => {
+                        log(`播放当前音乐失败 (重试): ${e}`);
+                        if (retry) {
+                            setTimeout(() => playMusic(musicElement, false), 300);
+                        }
+                    });
                 }
                 return;
             }
+            
+            // 停止当前音乐
             if (currentMusic && currentMusic !== musicElement) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
+            
             musicElement.volume = 1.0; // 调大音量
-            musicElement.play().catch(e => log('音樂播放失敗: ' + e));
+            musicElement.play().then(() => {
+                log(`播放音乐: ${musicElement.id}`);
+            }).catch(e => {
+                log(`播放音乐失败 ${musicElement.id}: ${e}`);
+                if (retry) {
+                    // 尝试重新加载并重试一次
+                    musicElement.load();
+                    setTimeout(() => playMusic(musicElement, false), 500);
+                }
+            });
             currentMusic = musicElement;
         }
 
@@ -1104,6 +1139,9 @@
             btn.innerHTML = '<span class="animate-pulse">Loading...</span>';
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
+            
+            // 预加载所有音乐，确保后续切换顺畅
+            preloadAllMusic();
             
             try {
                 fadeAudioIn();
