@@ -291,43 +291,58 @@
             if (audio) audio.volume = 1.0;
         });
 
-        // 增強版播放函數：避免重複加載同一音樂，並顯示狀態
+        // ========== 強化版音樂播放函數 ==========
         function playMusic(musicElement, musicName = '') {
-            if (!musicElement) return;
-            
-            // 如果新音樂與當前音樂相同且正在播放（非暫停），則不重複加載
-            if (currentMusic === musicElement) {
-                if (!musicElement.paused) {
-                    log(`音樂 ${musicName} 已在播放`);
-                    return;
-                } else {
-                    // 如果暫停了，則恢復播放
-                    musicElement.play().catch(e => {
-                        log(`音樂 ${musicName} 恢復失敗: ${e}`);
-                        ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
-                    });
-                    return;
-                }
+            if (!musicElement) {
+                log(`播放失敗: musicElement 為空`);
+                ui.statusText.innerText = `MUSIC ERROR: no element`;
+                return;
             }
 
-            // 暫停當前音樂（如果有的話）
+            // 如果當前音樂是同一元素
+            if (currentMusic === musicElement) {
+                if (musicElement.paused) {
+                    log(`嘗試恢復音樂 ${musicName}`);
+                    musicElement.play().then(() => {
+                        log(`音樂 ${musicName} 恢復成功`);
+                        ui.statusText.innerText = `NOW PLAYING: ${musicName}`;
+                    }).catch(e => {
+                        log(`音樂 ${musicName} 恢復失敗: ${e}`);
+                        ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
+                        // 嘗試重新加載並播放
+                        musicElement.load();
+                        musicElement.play().catch(e2 => {
+                            log(`音樂 ${musicName} 重試失敗: ${e2}`);
+                        });
+                    });
+                } else {
+                    log(`音樂 ${musicName} 已在播放`);
+                }
+                return;
+            }
+
+            // 暫停當前音樂
             if (currentMusic) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
 
             // 播放新音樂
-            musicElement.load(); // 重新加載以確保從頭開始
+            log(`嘗試播放音樂 ${musicName}`);
+            musicElement.load(); // 重新加載以確保從頭播放
             musicElement.play().then(() => {
                 log(`音樂 ${musicName} 播放成功`);
                 ui.statusText.innerText = `NOW PLAYING: ${musicName}`;
             }).catch(e => {
                 log(`音樂 ${musicName} 播放失敗: ${e}`);
                 ui.statusText.innerText = `MUSIC FAILED: ${musicName}`;
-                // 嘗試一次重試（延遲100ms）
+                // 嘗試一次重試（延遲200ms）
                 setTimeout(() => {
-                    musicElement.play().catch(() => {});
-                }, 100);
+                    musicElement.load();
+                    musicElement.play().catch(e2 => {
+                        log(`音樂 ${musicName} 重試失敗: ${e2}`);
+                    });
+                }, 200);
             });
             currentMusic = musicElement;
         }
@@ -1004,6 +1019,7 @@
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
+                        // 關鍵：強制播放銀河音樂
                         playMusic(bgmGalaxy, 'Galaxy');
                     } else {
                         galaxyTargets = null;
