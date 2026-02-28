@@ -147,7 +147,7 @@
                 <span id="hand-icon" class="text-6xl animate-bounce">👋</span>
                 <h2 id="instruction-text" class="text-6xl md:text-8xl font-bold text-white neon-pulse transition-all duration-700">舉起手</h2>
             </div>
-            <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">握拳讓魔法發生</p>
+            <p id="sub-instruction" class="mt-4 text-xl md:text-2xl text-pink-200/80 font-light tracking-[0.3em]">讓魔法發生</p>
         </div>
 
         <!-- 攝影機預覽框 -->
@@ -167,11 +167,10 @@
         </div>
     </div>
 
-    <!-- 驚喜層 -->
+    <!-- 驚喜層（卡片）仍保留，但僅可透過禮物按鈕開啟 -->
     <div id="surprise-layer" class="hidden">
         <button id="reveal-btn" class="safe-click-area hidden px-10 py-5 bg-white text-pink-600 rounded-full font-bold text-2xl shadow-[0_0_60px_rgba(255,105,180,0.8)] hover:scale-105 transition-transform duration-300 animate-float">🎁 打開卡片</button>
         
-        <!-- 卡片（只保留第一頁） -->
         <div id="flip-card-container" class="hidden glass-panel w-full max-w-sm md:max-w-md aspect-[3/4] mx-6 pop-in">
             <div class="bg-gradient-to-br from-purple-500/40 to-blue-600/40 border border-white/30 p-1 rounded-[1.5rem] h-full">
                 <div class="bg-black/90 rounded-[1rem] p-8 h-full flex flex-col items-center justify-center backdrop-blur-md">
@@ -231,9 +230,8 @@
             "❤️每一個場景都有❤️",
             "一首專屬的歌曲🎵",
             "進入場景需對應手勢😎",
-            "☝️進入星辰🤏OK可抓取照片",
-            "左右滑動可以切換上下一張照片",
-            "✌️進入𐦍༘⋆為你準備的小視頻",
+            "☝️進入星辰🤏可抓取圖片",
+            "✌️進入𐦍༘⋆蝴蝶海",
             "｡ﾟﾟ･｡･ﾟﾟ｡ ",
             "。  love。",
             "　ﾟ･｡･ﾟ",
@@ -241,7 +239,7 @@
 
         // --- 全局變數 ---
         const VISUAL_CONFIG = { particleCount: IS_MOBILE ? 4000 : 7500, color: 0xff69b4 };
-        const STATE = { INTRO: -1, IDLE: 0, CARD: 1, CELEBRATION: 2 };
+        const STATE = { INTRO: -1, IDLE: 0, CELEBRATION: 2 }; // 移除了 CARD 狀態
         
         let currentState = STATE.INTRO;
         let interactionMode = 0; 
@@ -356,7 +354,7 @@
             }
         }
 
-        // ===== 慶祝主場景 =====
+        // ===== 慶祝主場景（握拳直接進入） =====
         function successCelebration() {
             log('進入慶祝主場景');
             currentState = STATE.CELEBRATION;
@@ -365,7 +363,7 @@
             if (ui.centerInstruction) ui.centerInstruction.style.display = 'none';
             if (ui.handIcon) ui.handIcon.style.display = 'none';
 
-            // 隱藏卡片
+            // 確保卡片層隱藏（防止之前可能開啟的卡片）
             ui.surpriseLayer.classList.remove('active');
             ui.surpriseLayer.classList.add('hidden');
             ui.cardContainer.classList.add('hidden');
@@ -382,23 +380,10 @@
             });
 
             playMusic(bgmCelebration, 'Celebration');
-        }
 
-        // ===== 顯示卡片（握拳觸發） =====
-        function showCard() {
-            if (currentState !== STATE.IDLE) return;
-            log('握拳，顯示卡片');
-            currentState = STATE.CARD;
-            // 隱藏中心提示
-            if (ui.centerInstruction) ui.centerInstruction.style.display = 'none';
-            if (ui.handIcon) ui.handIcon.style.display = 'none';
-            // 顯示卡片
-            ui.surpriseLayer.classList.remove('hidden');
-            ui.surpriseLayer.classList.add('active');
-            ui.cardContainer.classList.remove('hidden');
-            // 啟動打字機效果
-            typeWriter(wishes_part1, 'typewriter-text-1');
-            // 音樂保持不變（仍為 bgmMain）
+            // 設定互動模式為可旋轉，並顯示頂部橫幅
+            interactionMode = 1;
+            ui.topBanner.classList.remove('hidden');
         }
 
         // 輔助函數：隱藏照片
@@ -822,7 +807,7 @@
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
-                else if (currentState === STATE.IDLE || currentState === STATE.CARD) {
+                else if (currentState === STATE.IDLE) { // 只有 IDLE 時粒子環繞（進入前）
                     const angle = p.angle + time * 0.1;
                     const r = p.radius + Math.sin(time + i * 0.01)*2;
                     target.x = Math.cos(angle) * r;
@@ -838,9 +823,8 @@
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // 手勢控制粒子聚集/散開（IDLE 和 CELEBRATION 都啟用）
-                    if (p.type === 'bg' && heartCount > 0 && 
-                        (currentState === STATE.IDLE || currentState === STATE.CELEBRATION)) {
+                    // 手勢控制粒子聚集/散開（僅在 CELEBRATION 狀態下啟用）
+                    if (p.type === 'bg' && heartCount > 0 && currentState === STATE.CELEBRATION) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
                             target.copy(heartPositions[targetIndex]);
@@ -908,7 +892,7 @@
             type();
         }
 
-        // ===== 卡片控制 =====
+        // ===== 卡片控制（僅浮動按鈕觸發） =====
         ui.revealBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             ui.revealBtn.classList.add('hidden');
@@ -921,27 +905,20 @@
             ui.floatingGiftBtn.classList.add('hidden'); 
             ui.surpriseLayer.classList.remove('hidden'); 
             ui.surpriseLayer.classList.add('active');
-            interactionMode = 0;
+            interactionMode = 0; // 卡片顯示時暫停旋轉
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
         });
 
-        // 關閉卡片後進入慶祝主場景
         ui.closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // 隱藏卡片
             ui.surpriseLayer.classList.remove('active');
             ui.surpriseLayer.classList.add('hidden');
             ui.cardContainer.classList.add('hidden');
             ui.revealBtn.classList.add('hidden');
             ui.floatingGiftBtn.classList.remove('hidden');
-            
-            // 進入慶祝主場景
-            successCelebration();
-            
-            // 設定互動模式為可旋轉
-            interactionMode = 1; 
-            ui.topBanner.classList.remove('hidden');
+            // 恢復旋轉模式
+            interactionMode = 1;
         });
 
         ui.startBtn.addEventListener('click', async function() {
@@ -1020,7 +997,6 @@
                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
-                        // 關鍵：強制播放銀河音樂
                         playMusic(bgmGalaxy, 'Galaxy');
                     } else {
                         galaxyTargets = null;
@@ -1165,8 +1141,9 @@
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
+                            // ===== 修改點：握拳時直接進入慶祝主場景 =====
                             if (currentState === STATE.IDLE) {
-                                showCard();
+                                successCelebration();
                             }
                             lastOneGesture = false;
                             lastYaGesture = false;
