@@ -458,21 +458,15 @@
         let lastOneSwitchTime = 0;
         let lastYaSwitchTime = 0;
 
-        // ===== 预加载所有音乐和视频 =====
+        // ===== 预加载所有音乐和视频（只加载，不播放，避免同时出声）=====
         function preloadAllMedia() {
-            // 预加载音频
             const audios = [bgmCelebration, bgmGalaxy, bgmVideo];
             audios.forEach(audio => {
                 if (audio) {
-                    audio.load();
-                    audio.play().then(() => {
-                        audio.pause();
-                        audio.currentTime = 0;
-                        log(`预加载成功: ${audio.id}`);
-                    }).catch(e => log(`预加载失败 ${audio.id}: ${e}`));
+                    audio.load(); // 只加载，不播放
+                    log(`预加载: ${audio.id}`);
                 }
             });
-            // 预加载视频（仅加载，不播放）
             videoPlayer.load();
             log('视频开始预加载');
         }
@@ -542,6 +536,7 @@
                 }
             });
 
+            // 庆祝动画时仍保持当前音乐（bgmCelebration），无需切换
             if (currentMusic && currentMusic.paused) {
                 currentMusic.play().catch(e => log('恢复音乐播放失败: ' + e));
             }
@@ -574,7 +569,6 @@
                         if (retries > 0) {
                             setTimeout(() => attemptPlay(retries - 1), 500);
                         } else {
-                            // 可以在这里显示一个提示，但为了简洁，仅记录
                             log('视频播放最终失败，请检查文件');
                         }
                     });
@@ -1120,11 +1114,11 @@
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
             
-            // 预加载所有媒体（音频和视频）
+            // 预加载所有媒体（音频和视频）- 只加载，不播放
             preloadAllMedia();
             
             try {
-                fadeAudioIn();
+                fadeAudioIn(); // 播放 bgmCelebration
                 await initAudio();
                 log('音频初始化成功');
             } catch(e) {
