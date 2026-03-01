@@ -228,7 +228,7 @@
         <b>请在 VS Code 中安装 "Live Server" 插件并使用 "Open with Live Server" 运行。</b>
     </div>
 
-    <!-- 多首音樂元素 (已移除 bgm-main，使用 bgm-celebration 作为主场景音乐) -->
+    <!-- 多首音樂元素 (主场景音乐统一为 bgm-celebration) -->
     <audio id="bgm-celebration" loop preload="auto">
         <source src="./src/bgm_celebration.mp3" type="audio/mpeg">
     </audio>
@@ -430,7 +430,7 @@
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
 
-        // ===== 音樂控制 (bgm-main 已移除，所有主场景音乐使用 bgmCelebration) =====
+        // ===== 音樂控制 (主场景统一使用 bgmCelebration) =====
         const bgmCelebration = document.getElementById('bgm-celebration');
         const bgmGalaxy = document.getElementById('bgm-galaxy');
         const bgmVideo = document.getElementById('bgm-video');
@@ -503,7 +503,7 @@
         }
 
         function fadeAudioIn() {
-            playMusic(bgmCelebration); // 原 bgmMain 替换为 bgmCelebration
+            playMusic(bgmCelebration); // 从启动页进入后开始播放主场景音乐
         }
 
         function successCelebration() {
@@ -524,7 +524,15 @@
                 }
             });
 
-            playMusic(bgmCelebration); // 庆祝动画播放庆祝音乐（与主场景相同）
+            // 庆祝动画时不切换音乐，保持当前主场景音乐（bgmCelebration）继续播放
+            // 只需确保当前音乐未暂停（如果有必要）
+            if (currentMusic) {
+                if (currentMusic.paused) {
+                    currentMusic.play().catch(e => log('恢复音乐播放失败: ' + e));
+                }
+            } else {
+                playMusic(bgmCelebration); // 极罕见情况
+            }
 
             setTimeout(() => {
                 ui.surpriseLayer.classList.remove('hidden');
@@ -566,10 +574,8 @@
                 // 根据当前状态恢复音乐
                 if (galaxyMode) {
                     playMusic(bgmGalaxy);
-                } else if (currentState === STATE.CELEBRATION) {
-                    playMusic(bgmCelebration);
                 } else {
-                    playMusic(bgmCelebration); // 原 bgmMain 替换为 bgmCelebration
+                    playMusic(bgmCelebration); // 主场景
                 }
             }
         }
@@ -1088,8 +1094,8 @@
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 强制切换为主场景音乐（现为 bgmCelebration）
-            log('打开卡片，切换到主场景音乐 (bgmCelebration)');
+            // 强制切换为主场景音乐（现为 bgmCelebration），但如果是主场景音乐则不会中断
+            log('打开卡片，确保主场景音乐播放 (bgmCelebration)');
             playMusic(bgmCelebration);
         });
 
@@ -1102,7 +1108,7 @@
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
             // 浮动按钮打开卡片也切换到主场景音乐
-            log('打开卡片（浮动按钮），切换到主场景音乐 (bgmCelebration)');
+            log('打开卡片（浮动按钮），确保主场景音乐播放 (bgmCelebration)');
             playMusic(bgmCelebration);
         });
 
@@ -1117,11 +1123,10 @@
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
-            // 关闭卡片后根据银河模式和庆祝状态决定音乐
+            // 关闭卡片后根据银河模式决定音乐
             if (galaxyMode) {
                 playMusic(bgmGalaxy);
             } else {
-                // 无论是否庆祝，只要不是银河模式，都播放主场景音乐 (bgmCelebration)
                 playMusic(bgmCelebration);
             }
         });
@@ -1215,9 +1220,7 @@
                     } else {
                         galaxyTargets = null;
                         hidePhoto(); // 离开银河模式隐藏照片
-                        if (currentState !== STATE.CELEBRATION) {
-                            playMusic(bgmCelebration);
-                        }
+                        playMusic(bgmCelebration);
                     }
                 }
             }
@@ -1417,7 +1420,7 @@
                                     } else {
                                         galaxyTargets = null;
                                         hidePhoto(); // 离开银河模式隐藏照片
-                                        if (currentState !== STATE.CELEBRATION) playMusic(bgmCelebration);
+                                        playMusic(bgmCelebration);
                                     }
                                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 }
