@@ -228,10 +228,7 @@
         <b>请在 VS Code 中安装 "Live Server" 插件并使用 "Open with Live Server" 运行。</b>
     </div>
 
-    <!-- 多首音樂元素 -->
-    <audio id="bgm-main" loop preload="auto">
-        <source src="./src/bgm_main.mp3" type="audio/mpeg">
-    </audio>
+    <!-- 多首音樂元素 (已移除 bgm-main，使用 bgm-celebration 作为主场景音乐) -->
     <audio id="bgm-celebration" loop preload="auto">
         <source src="./src/bgm_celebration.mp3" type="audio/mpeg">
     </audio>
@@ -433,8 +430,7 @@
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
 
-        // ===== 音樂控制 =====
-        const bgmMain = document.getElementById('bgm-main');
+        // ===== 音樂控制 (bgm-main 已移除，所有主场景音乐使用 bgmCelebration) =====
         const bgmCelebration = document.getElementById('bgm-celebration');
         const bgmGalaxy = document.getElementById('bgm-galaxy');
         const bgmVideo = document.getElementById('bgm-video');
@@ -446,7 +442,7 @@
 
         // ===== 预加载所有音乐，在用户手势后激活音频上下文 =====
         function preloadAllMusic() {
-            const audios = [bgmMain, bgmCelebration, bgmGalaxy, bgmVideo];
+            const audios = [bgmCelebration, bgmGalaxy, bgmVideo];
             audios.forEach(audio => {
                 if (audio) {
                     audio.load(); // 确保加载
@@ -507,7 +503,7 @@
         }
 
         function fadeAudioIn() {
-            playMusic(bgmMain);
+            playMusic(bgmCelebration); // 原 bgmMain 替换为 bgmCelebration
         }
 
         function successCelebration() {
@@ -528,7 +524,7 @@
                 }
             });
 
-            playMusic(bgmCelebration); // 庆祝动画播放庆祝音乐
+            playMusic(bgmCelebration); // 庆祝动画播放庆祝音乐（与主场景相同）
 
             setTimeout(() => {
                 ui.surpriseLayer.classList.remove('hidden');
@@ -573,7 +569,7 @@
                 } else if (currentState === STATE.CELEBRATION) {
                     playMusic(bgmCelebration);
                 } else {
-                    playMusic(bgmMain);
+                    playMusic(bgmCelebration); // 原 bgmMain 替换为 bgmCelebration
                 }
             }
         }
@@ -1092,9 +1088,9 @@
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 强制切换为主场景音乐（bgm-main）
-            log('打开卡片，切换到主场景音乐');
-            playMusic(bgmMain);
+            // 强制切换为主场景音乐（现为 bgmCelebration）
+            log('打开卡片，切换到主场景音乐 (bgmCelebration)');
+            playMusic(bgmCelebration);
         });
 
         ui.floatingGiftBtn.addEventListener('click', (e) => {
@@ -1106,8 +1102,8 @@
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
             // 浮动按钮打开卡片也切换到主场景音乐
-            log('打开卡片（浮动按钮），切换到主场景音乐');
-            playMusic(bgmMain);
+            log('打开卡片（浮动按钮），切换到主场景音乐 (bgmCelebration)');
+            playMusic(bgmCelebration);
         });
 
         ui.closeBtn.addEventListener('click', (e) => {
@@ -1125,8 +1121,8 @@
             if (galaxyMode) {
                 playMusic(bgmGalaxy);
             } else {
-                // 无论是否庆祝，只要不是银河模式，都播放主场景音乐
-                playMusic(bgmMain);
+                // 无论是否庆祝，只要不是银河模式，都播放主场景音乐 (bgmCelebration)
+                playMusic(bgmCelebration);
             }
         });
 
@@ -1220,7 +1216,7 @@
                         galaxyTargets = null;
                         hidePhoto(); // 离开银河模式隐藏照片
                         if (currentState !== STATE.CELEBRATION) {
-                            playMusic(bgmMain);
+                            playMusic(bgmCelebration);
                         }
                     }
                 }
@@ -1303,14 +1299,14 @@
         }
 
         function fadeAudioIn() {
-            playMusic(bgmMain);
+            playMusic(bgmCelebration);
         }
         
         document.getElementById('music-btn').addEventListener('click', () => {
             if (currentMusic) {
                 if (currentMusic.paused) currentMusic.play(); else currentMusic.pause();
             } else {
-                playMusic(bgmMain);
+                playMusic(bgmCelebration);
             }
         });
 
@@ -1421,7 +1417,7 @@
                                     } else {
                                         galaxyTargets = null;
                                         hidePhoto(); // 离开银河模式隐藏照片
-                                        if (currentState !== STATE.CELEBRATION) playMusic(bgmMain);
+                                        if (currentState !== STATE.CELEBRATION) playMusic(bgmCelebration);
                                     }
                                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
                                 }
