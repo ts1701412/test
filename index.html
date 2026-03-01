@@ -456,7 +456,7 @@
             });
         }
 
-        // 增强版音乐播放：如果失败则重试一次，并确保主场景音乐在卡片打开时强制播放
+        // 增强版音乐播放：如果失败则重试一次
         function playMusic(musicElement, retry = true) {
             if (!musicElement) return;
             
@@ -524,14 +524,10 @@
                 }
             });
 
-            // 庆祝动画时不切换音乐，保持当前主场景音乐（bgmCelebration）继续播放
-            // 只需确保当前音乐未暂停（如果有必要）
-            if (currentMusic) {
-                if (currentMusic.paused) {
-                    currentMusic.play().catch(e => log('恢复音乐播放失败: ' + e));
-                }
-            } else {
-                playMusic(bgmCelebration); // 极罕见情况
+            // 庆祝动画不干预音乐，保持当前主场景音乐（bgmCelebration）继续播放
+            // 只需确保如果意外暂停则恢复
+            if (currentMusic && currentMusic.paused) {
+                currentMusic.play().catch(e => log('恢复音乐播放失败: ' + e));
             }
 
             setTimeout(() => {
@@ -1094,8 +1090,7 @@
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 强制切换为主场景音乐（现为 bgmCelebration），但如果是主场景音乐则不会中断
-            log('打开卡片，确保主场景音乐播放 (bgmCelebration)');
+            // 确保主场景音乐播放，但如果是当前音乐不会重播
             playMusic(bgmCelebration);
         });
 
@@ -1107,8 +1102,6 @@
             interactionMode = 0;
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 浮动按钮打开卡片也切换到主场景音乐
-            log('打开卡片（浮动按钮），确保主场景音乐播放 (bgmCelebration)');
             playMusic(bgmCelebration);
         });
 
