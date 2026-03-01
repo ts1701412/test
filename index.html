@@ -247,10 +247,9 @@
     <!-- 银河照片 -->
     <img id="galaxy-photo" src="./src/1.jpg" alt="Birthday Photo" crossorigin="anonymous">
 
-    <!-- ===== 影片模式容器（无控制条，自动播放） ===== -->
+    <!-- ===== 影片模式容器（优化：preload="auto" 提前加载） ===== -->
     <div id="video-mode-container">
-        <!-- 移除 autoplay，添加 preload="none" 避免预加载声音 -->
-        <video id="video-player" src="./src/video.mp4" playsinline loop preload="none"></video>
+        <video id="video-player" src="./src/video.mp4" playsinline loop preload="auto"></video>
         <div id="video-text"></div>
     </div>
 
@@ -425,7 +424,7 @@
         // ===== 影片模式相关 =====
         let videoMode = false;
         let typewriterInterval = null;
-        let typewriterTimeout = null; // 段间暂停超时（不再使用，保留以防万一）
+        let typewriterTimeout = null;
         const videoContainer = document.getElementById('video-mode-container');
         const videoPlayer = document.getElementById('video-player');
         const videoText = document.getElementById('video-text');
@@ -437,16 +436,16 @@
         let currentMusic = null;
 
         // ===== 手势场景切换冷却时间 =====
-        let lastOneSwitchTime = 0;      // 手势“one”上次切换时间
-        let lastYaSwitchTime = 0;       // 手势“ya”上次切换时间
+        let lastOneSwitchTime = 0;
+        let lastYaSwitchTime = 0;
 
-        // ===== 预加载所有音乐，在用户手势后激活音频上下文 =====
-        function preloadAllMusic() {
+        // ===== 预加载所有音乐和视频 =====
+        function preloadAllMedia() {
+            // 预加载音频
             const audios = [bgmCelebration, bgmGalaxy, bgmVideo];
             audios.forEach(audio => {
                 if (audio) {
-                    audio.load(); // 确保加载
-                    // 尝试播放并立即暂停，以激活音频（需要用户手势）
+                    audio.load();
                     audio.play().then(() => {
                         audio.pause();
                         audio.currentTime = 0;
@@ -454,13 +453,15 @@
                     }).catch(e => log(`预加载失败 ${audio.id}: ${e}`));
                 }
             });
+            // 预加载视频（仅加载，不播放）
+            videoPlayer.load();
+            log('视频开始预加载');
         }
 
-        // 增强版音乐播放：如果失败则重试一次
+        // 增强版音乐播放
         function playMusic(musicElement, retry = true) {
             if (!musicElement) return;
             
-            // 如果已经是当前音乐，确保音量并尝试播放（如果暂停）
             if (currentMusic === musicElement) {
                 musicElement.volume = 1.0;
                 if (musicElement.paused) {
@@ -474,19 +475,17 @@
                 return;
             }
             
-            // 停止当前音乐
             if (currentMusic && currentMusic !== musicElement) {
                 currentMusic.pause();
                 currentMusic.currentTime = 0;
             }
             
-            musicElement.volume = 1.0; // 调大音量
+            musicElement.volume = 1.0;
             musicElement.play().then(() => {
                 log(`播放音乐: ${musicElement.id}`);
             }).catch(e => {
                 log(`播放音乐失败 ${musicElement.id}: ${e}`);
                 if (retry) {
-                    // 尝试重新加载并重试一次
                     musicElement.load();
                     setTimeout(() => playMusic(musicElement, false), 500);
                 }
@@ -503,7 +502,7 @@
         }
 
         function fadeAudioIn() {
-            playMusic(bgmCelebration); // 从启动页进入后开始播放主场景音乐
+            playMusic(bgmCelebration);
         }
 
         function successCelebration() {
@@ -524,8 +523,6 @@
                 }
             });
 
-            // 庆祝动画不干预音乐，保持当前主场景音乐（bgmCelebration）继续播放
-            // 只需确保如果意外暂停则恢复
             if (currentMusic && currentMusic.paused) {
                 currentMusic.play().catch(e => log('恢复音乐播放失败: ' + e));
             }
@@ -537,19 +534,34 @@
             }, 1500);
         }
 
+        // 优化视频播放：进入视频模式时确保播放顺畅
         function toggleVideoMode(enable) {
             if (enable === videoMode) return;
             videoMode = enable;
             if (videoMode) {
-                // 进入视频模式，关闭银河模式
                 galaxyMode = false;
                 galaxyTargets = null;
-                hidePhoto(); // 隐藏照片
+                hidePhoto();
                 
                 videoContainer.classList.add('active');
                 particleSystem.visible = false;
-                // 视频开始播放（已移除autoplay，此处手动播放）
-                videoPlayer.play().catch(e => log('视频自动播放失败: ' + e));
+                
+                // 尝试播放视频，如果失败则重试（最多3次）
+                const attemptPlay = (retries = 3) => {
+                    videoPlayer.play().then(() => {
+                        log('视频播放成功');
+                    }).catch(e => {
+                        log(`视频播放失败 (剩余重试 ${retries}): ${e}`);
+                        if (retries > 0) {
+                            setTimeout(() => attemptPlay(retries - 1), 500);
+                        } else {
+                            // 可以在这里显示一个提示，但为了简洁，仅记录
+                            log('视频播放最终失败，请检查文件');
+                        }
+                    });
+                };
+                attemptPlay(3);
+                
                 startTypewriter();
                 stopAllMusic();
                 playMusic(bgmVideo);
@@ -557,7 +569,6 @@
                 videoContainer.classList.remove('active');
                 particleSystem.visible = true;
                 videoPlayer.pause();
-                // 清除打字机相关定时器
                 if (typewriterInterval) {
                     clearInterval(typewriterInterval);
                     typewriterInterval = null;
@@ -567,22 +578,21 @@
                     typewriterTimeout = null;
                 }
                 videoText.textContent = '';
-                // 根据当前状态恢复音乐
                 if (galaxyMode) {
                     playMusic(bgmGalaxy);
                 } else {
-                    playMusic(bgmCelebration); // 主场景
+                    playMusic(bgmCelebration);
                 }
             }
         }
 
         // 照片相关辅助函数
         function showPhoto(index) {
-            if (!galaxyMode) return; // 只在银河模式显示
+            if (!galaxyMode) return;
             photoElement.src = photoList[index];
             photoActive = true;
             photoElement.classList.add('active');
-            photoElement.classList.add('interactive'); // 允许触摸事件
+            photoElement.classList.add('interactive');
         }
 
         function hidePhoto() {
@@ -603,11 +613,10 @@
             photoElement.src = photoList[currentPhotoIndex];
         }
 
-        // 为照片添加滑动切换事件
         (function initPhotoSwipe() {
             let touchStartX = 0;
             let touchEndX = 0;
-            const minSwipeDistance = 50; // 最小滑动距离
+            const minSwipeDistance = 50;
 
             photoElement.addEventListener('touchstart', (e) => {
                 if (!galaxyMode || !photoActive) return;
@@ -623,36 +632,22 @@
             function handleSwipe() {
                 const delta = touchEndX - touchStartX;
                 if (Math.abs(delta) < minSwipeDistance) return;
-                if (delta > 0) {
-                    // 右滑 -> 上一张
-                    prevPhoto();
-                } else {
-                    // 左滑 -> 下一张
-                    nextPhoto();
-                }
+                if (delta > 0) prevPhoto();
+                else nextPhoto();
             }
         })();
 
-        // 打字机效果：每段文字依次打出，保留不消失，段落间自动换行，全部打完后停止
         function startTypewriter() {
-            // 清除之前的定时器
-            if (typewriterInterval) {
-                clearInterval(typewriterInterval);
-                typewriterInterval = null;
-            }
-            if (typewriterTimeout) {
-                clearTimeout(typewriterTimeout);
-                typewriterTimeout = null;
-            }
-            videoText.textContent = ''; // 开始时清空
+            if (typewriterInterval) clearInterval(typewriterInterval);
+            if (typewriterTimeout) clearTimeout(typewriterTimeout);
+            videoText.textContent = '';
 
             let messageIndex = 0;
             let charIndex = 0;
-            const speed = 350; // 打字速度（毫秒/字符）
+            const speed = 350;
 
             function typeNext() {
                 if (messageIndex >= videoMessages.length) {
-                    // 所有段落已打完，停止
                     if (typewriterInterval) {
                         clearInterval(typewriterInterval);
                         typewriterInterval = null;
@@ -662,22 +657,17 @@
                 const currentMessage = videoMessages[messageIndex];
 
                 if (charIndex < currentMessage.length) {
-                    // 逐字输出
                     videoText.textContent += currentMessage.charAt(charIndex);
                     charIndex++;
                 } else {
-                    // 当前段落已打完，添加换行，并移动到下一段
-                    videoText.textContent += '\n'; // 使用 \n 换行（需配合 white-space: pre-wrap）
+                    videoText.textContent += '\n';
                     messageIndex++;
                     charIndex = 0;
-                    // 继续打字（由 interval 自动调用下一轮）
                 }
             }
-
             typewriterInterval = setInterval(typeNext, speed);
         }
 
-        // --- 摄像头可用标志及鼠标控制标志 ---
         let cameraAvailable = false;
         let useMouseControl = false;
 
@@ -805,30 +795,20 @@
             return new THREE.CanvasTexture(c);
         }
 
-        // ==================== 爱心生成 ====================
         function getShapePoints(type, text) {
             const points = [];
-            if (type === 'text') {
-                // 不再使用数字粒子，但保留函数以防万一
-                return points;
-            } else if (type === 'cake') {
+            if (type === 'cake') {
                 const totalCount = IS_MOBILE ? 2000 : 3500;
-                // 爱心大小 1.2
                 const scale = 1.2;
-
                 for (let i = 0; i < totalCount; i++) {
                     const u = Math.random() * Math.PI * 2;
                     const v = Math.random() * Math.PI * 2;
-
                     const x0 = 16 * Math.pow(Math.sin(u), 3);
                     const y0 = 13 * Math.cos(u) - 5 * Math.cos(2*u) - 2 * Math.cos(3*u) - Math.cos(4*u);
-
                     const rOffset = 0.9 + Math.random() * 0.2;
-
                     const x = x0 * Math.cos(v) * scale * rOffset;
                     const y = y0 * scale * rOffset;
                     const z = x0 * Math.sin(v) * scale * rOffset;
-
                     points.push({
                         vec: new THREE.Vector3(x, y, z),
                         type: 'heart',
@@ -843,7 +823,6 @@
 
         function preloadShapes() {
             setTimeout(() => {
-                // 仅预加载爱心形状，移除数字粒子
                 shapeCache['cake'] = getShapePoints('cake');
                 ui.loadingText.style.display = 'none';
             }, 100);
@@ -941,7 +920,6 @@
                 galaxyTargets = generateGalaxyTargets();
             } else if (!galaxyMode) {
                 galaxyTargets = null;
-                // 离开银河模式时隐藏照片
                 if (photoActive) hidePhoto();
             }
 
@@ -949,7 +927,6 @@
                 const p = particlesData[i];
                 let target = p.target.clone();
 
-                // 爱心：深红色
                 if (p.type === 'heart') {
                     p.targetColor.set(0x8B0000);
                 }
@@ -969,7 +946,6 @@
                     target.x = Math.cos(angle) * r;
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + p.noiseOffset) * 2;
-                    // 庆祝动画：浅粉色
                     p.targetColor.setHSL(0.9, 0.8, 0.7 + Math.random() * 0.3);
                 } 
                 else if (currentState === STATE.IDLE) {
@@ -979,18 +955,15 @@
                     target.z = Math.sin(angle) * r;
                     target.y = p.baseTarget.y + Math.sin(time + target.x * 0.05) * 5; 
                     
-                    // 背景粒子：深灰色
                     if (p.type === 'bg') {
                         p.targetColor.set(0x333333);
                     }
                 }
 
-                // 银河模式覆盖所有颜色
                 if (galaxyMode && galaxyTargets) {
                     target.copy(galaxyTargets.targets[i]);
                     p.targetColor.copy(galaxyTargets.colors[i]);
                 } else {
-                    // 非银河模式下的手势控制
                     if (p.type === 'bg' && heartCount > 0) {
                         if (handGesture === 'fist') {
                             const targetIndex = i % heartCount;
@@ -1001,7 +974,6 @@
                     }
                 }
 
-                // 加快粒子聚合速度：将 lerp 系数从 0.02 改为 0.08
                 p.current.lerp(target, 0.08);
 
                 positions[i*3] = p.current.x;
@@ -1033,15 +1005,12 @@
             }
         }
 
-        // --- 业务逻辑 ---
         let transitionLock = false;
 
         function startSequence() {
             if (currentState !== STATE.IDLE || transitionLock) return;
             transitionLock = true;
-            // 隐藏手图标
             ui.handIcon.style.display = 'none';
-            // 直接进入吹气阶段，不再显示数字粒子
             showCake();
         }
 
@@ -1057,7 +1026,6 @@
             ui.blowHint.style.opacity = '1';
         }
 
-        // 打字机函数（用于卡片）
         function typeWriter(textArray, containerId, speed = 50) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -1084,13 +1052,11 @@
             type();
         }
 
-        // ===== 卡片控制 =====
         ui.revealBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             ui.revealBtn.classList.add('hidden');
             ui.cardContainer.classList.remove('hidden');
             typeWriter(wishes_part1, 'typewriter-text-1');
-            // 确保主场景音乐播放，但如果是当前音乐不会重播
             playMusic(bgmCelebration);
         });
 
@@ -1116,7 +1082,6 @@
             transitionTo('cake'); 
             ui.statusText.innerText = "INTERACTIVE MODE: DRAG TO ROTATE";
             ui.topBanner.classList.remove('hidden');
-            // 关闭卡片后根据银河模式决定音乐
             if (galaxyMode) {
                 playMusic(bgmGalaxy);
             } else {
@@ -1136,8 +1101,8 @@
             btn.disabled = true;
             ui.loadingText.style.display = 'block';
             
-            // 预加载所有音乐，确保后续切换顺畅
-            preloadAllMusic();
+            // 预加载所有媒体（音频和视频）
+            preloadAllMedia();
             
             try {
                 fadeAudioIn();
@@ -1196,7 +1161,6 @@
             });
         }
 
-        // 键盘事件监听（保留调试功能）
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') {
                 if (currentState !== STATE.INTRO && !videoMode) {
@@ -1206,25 +1170,21 @@
                     if (galaxyMode) {
                         galaxyTargets = generateGalaxyTargets();
                         playMusic(bgmGalaxy);
-                        // 如果之前有照片索引，重新显示
                         if (photoActive) {
                             showPhoto(currentPhotoIndex);
                         }
                     } else {
                         galaxyTargets = null;
-                        hidePhoto(); // 离开银河模式隐藏照片
+                        hidePhoto();
                         playMusic(bgmCelebration);
                     }
                 }
             }
             if (e.key === 'o' || e.key === 'O') {
                 if (galaxyMode && !photoActive && !videoMode) {
-                    // 随机选一张并显示
                     currentPhotoIndex = Math.floor(Math.random() * photoList.length);
                     showPhoto(currentPhotoIndex);
                     log('OK手势模拟按下，照片显示');
-                } else if (galaxyMode && photoActive) {
-                    // 如果已经显示，可以再次随机？根据需求，暂时不做
                 }
             }
             if (e.key === 'ArrowLeft') {
@@ -1239,9 +1199,8 @@
                 }
             }
         });
-        document.addEventListener('keyup', (e) => {
-            // 移除OK松开清除照片的逻辑
-        });
+
+        document.addEventListener('keyup', (e) => {});
 
         async function initAudio() {
             try {
@@ -1326,7 +1285,6 @@
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     const landmarks = results.multiHandLandmarks[0];
                     
-                    // 手势识别
                     const wrist = landmarks[0];
                     const tipIndices = [4, 8, 12, 16, 20];
                     const mcpIndices = [2, 5, 9, 13, 17];
@@ -1371,20 +1329,17 @@
                     
                     if (isOk) {
                         handGesture = 'ok';
-                        // 修改：OK手势在银河模式下召唤照片（如果尚未显示）
                         if (galaxyMode && !photoActive && !videoMode) {
                             currentPhotoIndex = Math.floor(Math.random() * photoList.length);
                             showPhoto(currentPhotoIndex);
                         }
-                        // 重置其他手势标志
                         lastOneGesture = false;
                         lastYaGesture = false;
                     } else if (isYa) {
                         handGesture = 'ya';
-                        // 边缘检测：只有刚出现时才触发
                         if (!lastYaGesture) {
                             const now = Date.now();
-                            if (now - lastYaSwitchTime > 3000) { // 冷却3秒
+                            if (now - lastYaSwitchTime > 3000) {
                                 lastYaSwitchTime = now;
                                 toggleVideoMode(!videoMode);
                             }
@@ -1392,27 +1347,23 @@
                         lastYaGesture = true;
                         lastOneGesture = false;
                     } else {
-                        // 不再在非OK手势时自动隐藏照片（保持显示）
                         if (isOne) {
                             handGesture = 'one';
-                            // 边缘检测：只有刚出现时才触发
                             if (!lastOneGesture) {
                                 const now = Date.now();
-                                if (now - lastOneSwitchTime > 3000) { // 冷却3秒
+                                if (now - lastOneSwitchTime > 3000) {
                                     lastOneSwitchTime = now;
-                                    // 切换银河模式，并确保视频模式关闭
                                     galaxyMode = !galaxyMode;
                                     if (galaxyMode) {
                                         if (videoMode) toggleVideoMode(false);
                                         galaxyTargets = generateGalaxyTargets();
                                         playMusic(bgmGalaxy);
-                                        // 如果之前有照片索引，重新显示（照片未隐藏）
                                         if (photoActive) {
                                             showPhoto(currentPhotoIndex);
                                         }
                                     } else {
                                         galaxyTargets = null;
-                                        hidePhoto(); // 离开银河模式隐藏照片
+                                        hidePhoto();
                                         playMusic(bgmCelebration);
                                     }
                                     ui.statusText.innerText = galaxyMode ? "GALAXY MODE ON" : "GALAXY MODE OFF";
@@ -1422,7 +1373,6 @@
                             lastYaGesture = false;
                         } else if (isFist) {
                             handGesture = 'fist';
-                            // 握拳开始生日流程
                             if (currentState === STATE.IDLE) {
                                 startSequence();
                             }
@@ -1457,7 +1407,6 @@
                     }
                     lastOneGesture = false;
                     lastYaGesture = false;
-                    // 没有手时不隐藏照片（照片保留）
                     ui.camStatusDot.className = "w-1.5 h-1.5 rounded-full bg-red-500";
                     ui.camStatusText.innerText = "NO HAND";
                     ui.camStatusText.className = "text-[8px] text-red-400 font-mono";
